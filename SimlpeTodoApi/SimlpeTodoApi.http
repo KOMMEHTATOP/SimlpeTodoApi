@@ -1,0 +1,6 @@
+@SimlpeTodoApi_HostAddress = http://localhost:5068
+
+GET {{SimlpeTodoApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
