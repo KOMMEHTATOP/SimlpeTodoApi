@@ -2,20 +2,17 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using SimlpeTodoApi.Data;
+using SimpleToDoApi.Data;
 
 #nullable disable
 
-namespace SimlpeTodoApi.Migrations
+namespace SimpleToDoApi.Migrations
 {
     [DbContext(typeof(TodoContext))]
-    [Migration("20250409115326_addToDoTable")]
-    partial class addToDoTable
+    partial class TodoContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -24,7 +21,7 @@ namespace SimlpeTodoApi.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("SimlpeTodoApi.Models.TodoItem", b =>
+            modelBuilder.Entity("SimpleToDoApi.Models.TodoItem", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -36,6 +33,7 @@ namespace SimlpeTodoApi.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("Title")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");

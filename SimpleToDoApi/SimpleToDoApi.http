@@ -1,0 +1,6 @@
+@SimpleToDoApi_HostAddress = http://localhost:5068
+
+GET {{SimpleToDoApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

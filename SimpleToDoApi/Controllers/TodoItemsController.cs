@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using SimlpeTodoApi.Data;
-using SimlpeTodoApi.Models;
+using SimpleToDoApi.Data;
+using SimpleToDoApi.Models;
 
-namespace SimlpeTodoApi.Controllers
+namespace SimpleToDoApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
@@ -98,6 +98,7 @@ namespace SimlpeTodoApi.Controllers
             }
 
             _context.ToDoItems.Remove(todoItem);
+            _context.SaveChanges();
 
             return NoContent();
         }

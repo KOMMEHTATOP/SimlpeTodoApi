@@ -1,8 +1,8 @@
 
 using Microsoft.EntityFrameworkCore;
-using SimlpeTodoApi.Data;
+using SimpleToDoApi.Data;
 
-namespace SimlpeTodoApi
+namespace SimpleToDoApi
 {
     public class Program
     {

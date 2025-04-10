@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace SimlpeTodoApi.Migrations
+namespace SimpleToDoApi.Migrations
 {
     /// <inheritdoc />
     public partial class addToDoTable : Migration
