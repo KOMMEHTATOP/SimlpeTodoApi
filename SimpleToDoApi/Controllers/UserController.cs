@@ -9,7 +9,6 @@ namespace SimpleToDoApi.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private static List<UserDTO> Users = new List<UserDTO>();
         private readonly TodoContext _context;
 
         public UserController(TodoContext context)
@@ -20,19 +19,47 @@ namespace SimpleToDoApi.Controllers
         [HttpPost]
         public IActionResult AddUser([FromBody] UserDTO user)
         {
-            if (Users.Any(u => u.UserName == user.UserName))
+            if (_context.Users.Any(u => u.UserName == user.UserName))
             {
                 return BadRequest("User already exists.");
             }
-            Users.Add(user);
+
+            try
+            {
+                _context.Users.Add(user);
+                _context.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+
+                return StatusCode(500, "База не доступна " + ex.Message);
+            }
             return CreatedAtAction(nameof(AddUser), new { username = user.UserName }, user);
         }
 
         [HttpGet]
         public IActionResult GetUsers()
         {
-            return Ok(Users);
+            return Ok(_context.Users);
         }
+
+        [HttpGet("{id}")]
+        public ActionResult<UserDTO> GetUser(int id)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var user = _context.Users.Find(id);
+            if (user == null)
+            {
+                return NotFound("Пользователь не найден");
+            }
+
+            return user;
+        }
+
 
         [HttpPut("{id}")]
         public IActionResult PutUser(int id, UserDTO updatedUser)
@@ -68,7 +95,25 @@ namespace SimpleToDoApi.Controllers
             }
 
             return Ok(existingUser);
+            //return Ok(new UserDTO
+            //{
+            //    id = existingUser.id,
+            //    UserName = existingUser.UserName,
+            //    Role = existingUser.Role
+            //});
         }
 
+        [HttpDelete("{id}")]
+        public IActionResult DeleteUser(int id)
+        {
+            var user = _context.Users.Find(id);
+            if (user == null)
+            {
+                return NotFound("Пользователь не найден");
+            }
+            _context.Users.Remove(user);
+            _context.SaveChanges();
+            return NoContent();
+        }
     }
 }
