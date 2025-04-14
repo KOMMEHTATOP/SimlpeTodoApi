@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using SimpleToDoApi.DTO;
 using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Data
@@ -11,5 +12,6 @@ namespace SimpleToDoApi.Data
         }
 
         public DbSet<TodoItem> ToDoItems { get; set; }
+        public DbSet<UserDTO> Users { get; set; }
     }
 }
