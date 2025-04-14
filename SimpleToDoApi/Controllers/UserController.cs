@@ -10,10 +10,12 @@ namespace SimpleToDoApi.Controllers
     public class UserController : ControllerBase
     {
         private readonly TodoContext _context;
+        private readonly DatabaseCleaner _databaseCleaner;
 
-        public UserController(TodoContext context)
+        public UserController(TodoContext context, DatabaseCleaner databaseCleaner)
         {
             _context = context;
+            _databaseCleaner = databaseCleaner;
         }
 
         [HttpPost]
@@ -95,12 +97,6 @@ namespace SimpleToDoApi.Controllers
             }
 
             return Ok(existingUser);
-            //return Ok(new UserDTO
-            //{
-            //    id = existingUser.id,
-            //    UserName = existingUser.UserName,
-            //    Role = existingUser.Role
-            //});
         }
 
         [HttpDelete("{id}")]
@@ -114,6 +110,14 @@ namespace SimpleToDoApi.Controllers
             _context.Users.Remove(user);
             _context.SaveChanges();
             return NoContent();
+        }
+
+        // Удалить всех пользователей
+        [HttpDelete("delete-all-users")]
+        public IActionResult DeleteAllUsers()
+        {
+            _databaseCleaner.ClearUsers();
+            return Ok("Все пользователи были удалены.");
         }
     }
 }

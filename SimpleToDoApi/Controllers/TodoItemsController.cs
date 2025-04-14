@@ -11,10 +11,11 @@ namespace SimpleToDoApi.Controllers
     public class TodoItemsController : ControllerBase
     {
         private readonly TodoContext _context;
-
-        public TodoItemsController(TodoContext context)
+        private readonly DatabaseCleaner _databaseCleaner;
+        public TodoItemsController(TodoContext context, DatabaseCleaner databaseCleaner)
         {
             _context = context;
+            _databaseCleaner = databaseCleaner;
         }
 
         // GET: api/TodoItems
@@ -103,6 +104,13 @@ namespace SimpleToDoApi.Controllers
             _context.SaveChanges();
 
             return NoContent();
+        }
+
+        [HttpDelete("delete-all")]
+        public IActionResult DeleteAll()
+        {
+            _databaseCleaner.ClearTodoItems();
+            return Ok("Все задачи были удалены.");
         }
     }
 }

@@ -86,7 +86,7 @@ namespace SimpleToDoApi
                     }
                 });
             });
-
+            builder.Services.AddScoped<DatabaseCleaner>();
             var app = builder.Build();
 
             if (app.Environment.IsDevelopment())
@@ -96,9 +96,8 @@ namespace SimpleToDoApi
             }
 
             app.UseHttpsRedirection();
-            app.UseAuthentication();  // Добавьте эту строку
+            app.UseAuthentication();  
             app.UseAuthorization();
-
 
             app.MapControllers();
 
