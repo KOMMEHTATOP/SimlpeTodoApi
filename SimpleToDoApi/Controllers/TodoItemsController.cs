@@ -7,7 +7,6 @@ namespace SimpleToDoApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class TodoItemsController : ControllerBase
     {
         private readonly TodoContext _context;
@@ -19,14 +18,16 @@ namespace SimpleToDoApi.Controllers
         }
 
         // GET: api/TodoItems
-        [HttpGet]
+        [HttpGet("view-all-tasks")]
+        [Authorize(Roles = "Admin")]
         public ActionResult<IEnumerable<TodoItem>> GetTodoItems()
         {
             return Ok(_context.ToDoItems);
         }
 
         // GET: api/TodoItems/1
-        [HttpGet("{id}")]
+        [HttpGet("view-task-ID-{id}")]
+        [Authorize(Roles = "Admin,User")]
         public ActionResult<TodoItem> GetTodoItem(int id)
         {
             var todoItem = _context.ToDoItems.Find(id);
@@ -41,7 +42,8 @@ namespace SimpleToDoApi.Controllers
 
 
         // POST: api/TodoItems
-        [HttpPost]
+        [HttpPost("create-new-task")]
+        [Authorize(Roles = "Admin")]
         public ActionResult<TodoItem> PostTodoItem([FromBody] TodoItem todoItem)
         {
             if (!ModelState.IsValid)
@@ -56,7 +58,8 @@ namespace SimpleToDoApi.Controllers
 
 
         // PUT: api/TodoItems/1
-        [HttpPut("{id}")]
+        [HttpPut("update-task-{id}")]
+        [Authorize(Roles = "Admin")]
         public IActionResult UpdateTodoItem(int id, TodoItem todoItem)
         {
             if (!ModelState.IsValid)
@@ -66,7 +69,7 @@ namespace SimpleToDoApi.Controllers
 
             if (id != todoItem.Id)
             {
-                return BadRequest("The ID in the URL does not match the ID in the request body.");
+                return BadRequest("ID в запросе отличается от тела");
             }
 
             var existingItem = _context.ToDoItems.Find(id);
@@ -77,7 +80,7 @@ namespace SimpleToDoApi.Controllers
 
             existingItem.Title = todoItem.Title;
             existingItem.IsComplete = todoItem.IsComplete;
-            
+
             try
             {
                 _context.SaveChanges();
@@ -91,7 +94,8 @@ namespace SimpleToDoApi.Controllers
         }
 
         // DELETE: api/TodoItems/1
-        [HttpDelete("{id}")]
+        [HttpDelete("delete-task-{id}")]
+        [Authorize(Roles = "Admin")]
         public IActionResult DeleteTodoItem(int id)
         {
             var todoItem = _context.ToDoItems.Find(id);
@@ -107,6 +111,7 @@ namespace SimpleToDoApi.Controllers
         }
 
         [HttpDelete("delete-all")]
+        [Authorize(Roles = "Admin")]
         public IActionResult DeleteAll()
         {
             _databaseCleaner.ClearTodoItems();

@@ -17,16 +17,26 @@ namespace SimpleToDoApi.Controllers
         [AllowAnonymous]
         public IActionResult Login([FromBody] LoginModel login)
         {
+            string role;
+
             if (login.Username == "1" && login.Password == "1")
             {
-                var token = GenerateJwtToken(login.Username);
-                return Ok(new { token });
+                role = "Admin";
+            }
+            else if (login.Username == "2" && login.Password == "2")
+            {
+                role = "User";
+            }
+            else
+            {
+                return Unauthorized("Invalid username or password!");
             }
 
-            return Unauthorized("Invalid username or password.");
+            var token = GenerateJwtToken(login.Username, role);
+            return Ok(new { token });
         }
 
-        private object GenerateJwtToken(string username)
+        private object GenerateJwtToken(string username, string role)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_which_is_long_enough"));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -34,7 +44,8 @@ namespace SimpleToDoApi.Controllers
             var claims = new[]
             {
                 new Claim(JwtRegisteredClaimNames.Sub, username),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(ClaimTypes.Role, role)
             };
 
             var token = new JwtSecurityToken(
