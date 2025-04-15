@@ -9,9 +9,9 @@ namespace SimpleToDoApi.Controllers
     [ApiController]
     public class TodoItemsController : ControllerBase
     {
-        private readonly TodoContext _context;
+        private readonly ITodoContext _context;
         private readonly DatabaseCleaner _databaseCleaner;
-        public TodoItemsController(TodoContext context, DatabaseCleaner databaseCleaner)
+        public TodoItemsController(ITodoContext context, DatabaseCleaner databaseCleaner)
         {
             _context = context;
             _databaseCleaner = databaseCleaner;
