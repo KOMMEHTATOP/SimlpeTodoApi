@@ -11,7 +11,7 @@ namespace SimpleToDoApi.Data
             
         }
 
-        public DbSet<TodoItem> ToDoItems { get; set; }
+        public DbSet<ToDoItem> ToDoItems { get; set; }
         public DbSet<UserDTO> Users { get; set; }
     }
 }

@@ -2,7 +2,7 @@
 
 namespace SimpleToDoApi.Models
 {
-    public class TodoItem
+    public class ToDoItem
     {
         public int Id { get; set; }
         [Required(ErrorMessage = "Title is required.")]

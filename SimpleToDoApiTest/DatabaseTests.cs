@@ -23,7 +23,7 @@ namespace SimpleToDoApiTest
             using (var context = new TodoContext(_options))
             {
                 // Act: Добавляем элемент в базу данных
-                var todoItem = new TodoItem { Title = "Test Task", IsComplete = false };
+                var todoItem = new ToDoItem { Title = "Test Task", IsComplete = false };
                 context.ToDoItems.Add(todoItem);
                 context.SaveChanges();
 
@@ -40,9 +40,9 @@ namespace SimpleToDoApiTest
         {
             using (var context = new TodoContext(_options))
             {
-                var todoItem = new TodoItem { Title = "Test Task", IsComplete = false };
-                var todoItem1 = new TodoItem { Title = "Test Task1", IsComplete = true };
-                var todoItem2 = new TodoItem { Title = "Test Task2", IsComplete = false };
+                var todoItem = new ToDoItem { Title = "Test Task", IsComplete = false };
+                var todoItem1 = new ToDoItem { Title = "Test Task1", IsComplete = true };
+                var todoItem2 = new ToDoItem { Title = "Test Task2", IsComplete = false };
                 context.ToDoItems.Add(todoItem);
                 context.ToDoItems.Add(todoItem1);
                 context.ToDoItems.Add(todoItem2);
@@ -60,9 +60,9 @@ namespace SimpleToDoApiTest
             using (var context = new TodoContext(_options))
             {
                 // Arrange: Добавляем элементы
-                var todoItem = new TodoItem { Title = "Test Task", IsComplete = false };
-                var todoItem1 = new TodoItem { Title = "Test Task1", IsComplete = false };
-                var todoItem2 = new TodoItem { Title = "Test Task1", IsComplete = false };
+                var todoItem = new ToDoItem { Title = "Test Task", IsComplete = false };
+                var todoItem1 = new ToDoItem { Title = "Test Task1", IsComplete = false };
+                var todoItem2 = new ToDoItem { Title = "Test Task1", IsComplete = false };
                 context.ToDoItems.Add(todoItem);
                 context.ToDoItems.Add(todoItem1);
                 context.ToDoItems.Add(todoItem2);
@@ -82,7 +82,7 @@ namespace SimpleToDoApiTest
             using (var context = new TodoContext(_options))
             {
                 // Arrange: Добавляем элемент
-                var todoItem = new TodoItem { Title = "Test Task", IsComplete = false };
+                var todoItem = new ToDoItem { Title = "Test Task", IsComplete = false };
                 context.ToDoItems.Add(todoItem);
                 context.SaveChanges();
 
@@ -104,8 +104,8 @@ namespace SimpleToDoApiTest
             using (var context = new TodoContext(_options))
             {
                 // Arrange: Добавляем несколько элементов
-                context.ToDoItems.Add(new TodoItem { Title = "Task 1", IsComplete = false });
-                context.ToDoItems.Add(new TodoItem { Title = "Task 2", IsComplete = true });
+                context.ToDoItems.Add(new ToDoItem { Title = "Task 1", IsComplete = false });
+                context.ToDoItems.Add(new ToDoItem { Title = "Task 2", IsComplete = true });
                 context.SaveChanges();
 
                 // Act: Получаем все элементы
@@ -124,8 +124,8 @@ namespace SimpleToDoApiTest
             using (var context = new TodoContext(_options))
             {
                 // Arrange: Добавляем несколько элементов
-                context.ToDoItems.Add(new TodoItem { Title = "Task 1", IsComplete = false });
-                context.ToDoItems.Add(new TodoItem { Title = "Task 2", IsComplete = true });
+                context.ToDoItems.Add(new ToDoItem { Title = "Task 1", IsComplete = false });
+                context.ToDoItems.Add(new ToDoItem { Title = "Task 2", IsComplete = true });
                 context.SaveChanges();
 
                 // Act: Получаем только завершённые задачи

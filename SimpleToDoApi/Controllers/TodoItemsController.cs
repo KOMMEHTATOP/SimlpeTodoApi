@@ -10,8 +10,8 @@ namespace SimpleToDoApi.Controllers
     public class TodoItemsController : ControllerBase
     {
         private readonly ITodoContext _context;
-        private readonly DatabaseCleaner _databaseCleaner;
-        public TodoItemsController(ITodoContext context, DatabaseCleaner databaseCleaner)
+        private readonly DatabaseCleaner? _databaseCleaner;
+        public TodoItemsController(ITodoContext context, DatabaseCleaner? databaseCleaner = null)
         {
             _context = context;
             _databaseCleaner = databaseCleaner;
@@ -20,7 +20,7 @@ namespace SimpleToDoApi.Controllers
         // GET: api/TodoItems
         [HttpGet("view-all-tasks")]
         [Authorize(Roles = "Admin")]
-        public ActionResult<IEnumerable<TodoItem>> GetTodoItems()
+        public ActionResult<IEnumerable<ToDoItem>> GetTodoItems()
         {
             return Ok(_context.ToDoItems);
         }
@@ -28,7 +28,7 @@ namespace SimpleToDoApi.Controllers
         // GET: api/TodoItems/1
         [HttpGet("view-task-ID-{id}")]
         [Authorize(Roles = "Admin,User")]
-        public ActionResult<TodoItem> GetTodoItem(int id)
+        public ActionResult<ToDoItem> GetTodoItem(int id)
         {
             var todoItem = _context.ToDoItems.Find(id);
 
@@ -44,7 +44,7 @@ namespace SimpleToDoApi.Controllers
         // POST: api/TodoItems
         [HttpPost("create-new-task")]
         [Authorize(Roles = "Admin")]
-        public ActionResult<TodoItem> PostTodoItem([FromBody] TodoItem todoItem)
+        public ActionResult<ToDoItem> PostTodoItem([FromBody] ToDoItem todoItem)
         {
             if (!ModelState.IsValid)
             {
@@ -60,7 +60,7 @@ namespace SimpleToDoApi.Controllers
         // PUT: api/TodoItems/1
         [HttpPut("update-task-{id}")]
         [Authorize(Roles = "Admin")]
-        public IActionResult UpdateTodoItem(int id, TodoItem todoItem)
+        public IActionResult UpdateTodoItem(int id, ToDoItem todoItem)
         {
             if (!ModelState.IsValid)
             {
@@ -114,7 +114,7 @@ namespace SimpleToDoApi.Controllers
         [Authorize(Roles = "Admin")]
         public IActionResult DeleteAll()
         {
-            _databaseCleaner.ClearTodoItems();
+            _databaseCleaner?.ClearTodoItems();
             return Ok("Все задачи были удалены.");
         }
     }

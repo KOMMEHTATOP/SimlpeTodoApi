@@ -87,6 +87,8 @@ namespace SimpleToDoApi
                 });
             });
             builder.Services.AddScoped<DatabaseCleaner>();
+            builder.Services.AddScoped<ITodoContext, TodoContext>();
+
             var app = builder.Build();
 
             if (app.Environment.IsDevelopment())
