@@ -1,12 +1,10 @@
-﻿using System.Collections.Generic;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using SimpleToDoApi.Controllers;
 using SimpleToDoApi.Data;
 using SimpleToDoApi.Models;
-using Xunit;
+using MockQueryable.Moq;
 
 namespace SimpleToDoApiTest
 {
@@ -23,11 +21,13 @@ namespace SimpleToDoApiTest
                 new ToDoItem {Id=3, Title="Title3", IsComplete=false}
             }.AsQueryable();
 
-            var mockDbSet = new Mock<DbSet<ToDoItem>>();
-            mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.Provider).Returns(listTasks.Provider);
-            mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.Expression).Returns(listTasks.Expression);
-            mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.ElementType).Returns(listTasks.ElementType);
-            mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.GetEnumerator()).Returns(listTasks.GetEnumerator());
+            var mockDbSet = listTasks.AsQueryable().BuildMockDbSet(); 
+            //МЕТОД ВЫШЕ ЗАМЕНЯЕТ ВОТ ТАКУЮ СБОРКУ
+            //var mockDbSet = new Mock<DbSet<ToDoItem>>();
+            //mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.Provider).Returns(listTasks.Provider);
+            //mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.Expression).Returns(listTasks.Expression);
+            //mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.ElementType).Returns(listTasks.ElementType);
+            //mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.GetEnumerator()).Returns(listTasks.GetEnumerator());
 
             var mockContext = new Mock<ITodoContext>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
@@ -82,7 +82,7 @@ namespace SimpleToDoApiTest
             var result = controller.GetTodoItem(1);
 
             // Assert
-            var returnedItem = Assert.IsType<ToDoItem>(result.Value); // Проверяем result.Value, а не result.Result
+            var returnedItem = Assert.IsType<ToDoItem>(result.Value); 
             Assert.Equal(testTodoItem.Id, returnedItem.Id);
             Assert.Equal(testTodoItem.Title, returnedItem.Title);
         }
@@ -142,8 +142,7 @@ namespace SimpleToDoApiTest
         {
             var existingItem = new ToDoItem { Id=1, Title = "OldTitle" };
             var updatedItem = new ToDoItem { Id = 1, Title = "NewTitle" };
-
-            var mockDbSet = new Mock<DbSet<ToDoItem>>();
+            
             var mockContext = new Mock<ITodoContext>();
             var controller = new TodoItemsController(mockContext.Object);
 
@@ -172,7 +171,9 @@ namespace SimpleToDoApiTest
 
             var errorResponse = Assert.IsType<BadRequestObjectResult>(result);
             //проверка содержимого ошибки
-            Assert.True(((SerializableError)errorResponse.Value).ContainsKey("Title"));
+            Assert.NotNull(errorResponse.Value); // Добавляем проверку на null
+            var serializableError = Assert.IsType<SerializableError>(errorResponse.Value); // Явное приведение с проверкой
+            Assert.True(serializableError.ContainsKey("Title"));        
         }
 
         [Fact]
