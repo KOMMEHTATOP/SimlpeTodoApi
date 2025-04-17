@@ -179,53 +179,60 @@ namespace SimpleToDoApiTest
         [Fact]
         public void UpdateTodoItem_ReturnsNotFound_WhenTaskDoesNotExist()
         {
-
+            var newTodoItem = new ToDoItem { Id = 1, Title = "New Title" };
+            var mockContext = new Mock<ITodoContext>();
+            var controller = new TodoItemsController(mockContext.Object);
+            mockContext.Setup(c => c.ToDoItems.Find(It.IsAny<int>())).Returns((ToDoItem)null!);
+            var result = controller.UpdateTodoItem(1, newTodoItem);
+            Assert.IsType<NotFoundResult>(result);
         }
 
         [Fact]
         public void UpdateTodoItem_ReturnsBadRequest_WhenIdMismatch() //(если id в URL ≠ id в теле запроса)
         {
-
-        }
-
-        [Fact]
-        public void UpdateTodoItem_ReturnsForbidden_WhenNotAdmin()
-        {
-
+            var newToDoItem = new ToDoItem { Id = 2, Title = "New Title" };
+            var mockContext = new Mock<ITodoContext>();
+            var controller = new TodoItemsController(mockContext.Object);
+            mockContext.Setup(c => c.ToDoItems.Find(It.IsAny<int>())).Returns((ToDoItem)null!);
+            var result = controller.UpdateTodoItem(1, newToDoItem);
+            var badRequestObjectResult = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Equal("ID в запросе отличается от тела", badRequestObjectResult.Value);
         }
 
         //-------------------------DeleteTodoItem (DELETE /delete-task-{id})--------------------------
         [Fact]
         public void DeleteTodoItem_DeletesItem_WhenTaskExists()
         {
-
+            var itemToDelete = new ToDoItem
+            {
+                Id = 1, Title = "OldTitle"
+            };
+            var mockContext = new Mock<ITodoContext>();
+            var mockDbSet = new Mock<DbSet<ToDoItem>>();
+            
+            mockDbSet.Setup(c=>c.Find(1)).Returns(itemToDelete);
+            mockDbSet.Setup(c=>c.Remove(itemToDelete)).Verifiable();
+            mockContext.Setup(c=>c.ToDoItems).Returns(mockDbSet.Object);
+            mockContext.Setup(c => c.SaveChanges()).Returns(1);
+            var controller = new TodoItemsController(mockContext.Object);
+            var result = controller.DeleteTodoItem(itemToDelete.Id);
+            Assert.IsType<NoContentResult>(result);
+            mockDbSet.Verify(m => m.Remove(itemToDelete), Times.Once);
+            mockContext.Verify(c => c.SaveChanges(), Times.Once);
         }
 
         [Fact]
         public void DeleteTodoItem_ReturnsNotFound_WhenTaskDoesNotExist()
         {
-
-        }
-
-        [Fact]
-        public void DeleteTodoItem_ReturnsForbidden_WhenNotAdmin()
-        {
-
-        }
-
-
-        //-------------------------DeleteAll (DELETE /delete-all)--------------------------
-
-        [Fact]
-        public void DeleteAll_ClearsAllItems_WhenAdminRole()
-        {
-
-        }
-
-        [Fact]
-        public void DeleteAll_ReturnsForbidden_WhenNotAdmin()
-        {
-
+            var mockContext = new Mock<ITodoContext>();
+            var mockDbSet = new Mock<DbSet<ToDoItem>>();
+            mockDbSet.Setup(c=>c.Find(1)).Returns((ToDoItem)null!);
+            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
+            var controller = new TodoItemsController(mockContext.Object);
+            var result = controller.DeleteTodoItem(1);
+            Assert.IsType<NotFoundResult>(result);
+            mockDbSet.Verify(m => m.Remove(It.IsAny<ToDoItem>()), Times.Never);
+            mockContext.Verify(c => c.SaveChanges(), Times.Never);
         }
     }
 }

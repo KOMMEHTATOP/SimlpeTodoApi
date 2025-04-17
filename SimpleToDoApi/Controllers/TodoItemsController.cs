@@ -60,14 +60,14 @@ namespace SimpleToDoApi.Controllers
         // PUT: api/TodoItems/1
         [HttpPut("update-task-{id}")]
         [Authorize(Roles = "Admin")]
-        public IActionResult UpdateTodoItem(int id, ToDoItem todoItem)
+        public IActionResult UpdateTodoItem(int id, ToDoItem newToDoItem)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            if (id != todoItem.Id)
+            if (id != newToDoItem.Id)
             {
                 return BadRequest("ID в запросе отличается от тела");
             }
@@ -78,8 +78,8 @@ namespace SimpleToDoApi.Controllers
                 return NotFound();
             }
 
-            existingItem.Title = todoItem.Title;
-            existingItem.IsComplete = todoItem.IsComplete;
+            existingItem.Title = newToDoItem.Title;
+            existingItem.IsComplete = newToDoItem.IsComplete;
 
             try
             {
