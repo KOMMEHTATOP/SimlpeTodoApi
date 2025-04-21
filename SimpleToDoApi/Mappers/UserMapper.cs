@@ -5,7 +5,7 @@ namespace SimpleToDoApi.Mappers;
 
 public static class UserMapper
 {
-    public static UserDTO ToDTO(User user) => new UserDTO 
+    public static UserDto ToDto(User user) => new UserDto 
         { 
             Id = user.Id,
             UserName = user.UserName, 
@@ -13,7 +13,7 @@ public static class UserMapper
             Roles = user.Roles.Select(r=>r.Name).ToList() ?? new List<string>()
         };
 
-    public static User FromDTO(CreateUserDTO dto, IEnumerable<Role> allRoles, string passwordHash)
+    public static User FromDto(CreateUserDto dto, IEnumerable<Role> allRoles, string passwordHash)
     {
         return new User
         {

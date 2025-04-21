@@ -1,10 +1,8 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SimpleToDoApi.Data;
 using SimpleToDoApi.DTO;
 using SimpleToDoApi.Mappers;
-using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Controllers
 {
@@ -22,7 +20,7 @@ namespace SimpleToDoApi.Controllers
         }
 
         [HttpPost]
-        public IActionResult AddUser([FromBody] CreateUserDTO createUserDto)
+        public IActionResult AddUser([FromBody] CreateUserDto createUserDto)
         {
             if (!ModelState.IsValid)
             {
@@ -44,7 +42,7 @@ namespace SimpleToDoApi.Controllers
 
             var passwordHash = createUserDto.Password;
             
-            var user = UserMapper.FromDTO(createUserDto, roles, passwordHash);
+            var user = UserMapper.FromDto(createUserDto, roles, passwordHash);
                 
             try
             {
@@ -55,15 +53,15 @@ namespace SimpleToDoApi.Controllers
             {
                 return StatusCode(500, "База не доступна " + ex.Message);
             }
-            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, UserMapper.ToDTO(user));
+            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, UserMapper.ToDto(user));
         }
 
         [HttpGet]
         public IActionResult GetUsers()
         {
             var users = _context.Users.ToList();
-            var usersDTO = users.Select(u => UserMapper.ToDTO(u)).ToList();
-            return Ok(usersDTO);
+            var usersDto = users.Select(u => UserMapper.ToDto(u)).ToList();
+            return Ok(usersDto);
         }
 
         [HttpGet("{id}")]
@@ -78,12 +76,12 @@ namespace SimpleToDoApi.Controllers
                 return NotFound("Пользователь не найден");
             }
             
-            return Ok(UserMapper.ToDTO(user));
+            return Ok(UserMapper.ToDto(user));
         }
 
 
         [HttpPut("{id}")]
-        public IActionResult PutUser(int id, UpdateUserDTO updatedUserDTO)
+        public IActionResult PutUser(int id, UpdateUserDto updatedUserDto)
         {
             if (!ModelState.IsValid)
             {
@@ -100,16 +98,17 @@ namespace SimpleToDoApi.Controllers
                 return NotFound("Пользователь не найден");
             }
 
-            if (_context.Users.Any(u=>u.UserName == updatedUserDTO.UserName && u.Id != id))
+            if (_context.Users.Any(u=>u.UserName == updatedUserDto.UserName && u.Id != id))
             {
                 return BadRequest("Пользователь с таким именем уже существует.");
             }
-            existingUser.UserName = updatedUserDTO.UserName;
+            
+            existingUser.UserName = updatedUserDto.UserName;
             
             //получаем из базы роли по id из DTO
-            var roles = _context.Roles.Where(r=>updatedUserDTO.RoleIds.Contains(r.Id)).ToList();
+            var roles = _context.Roles.Where(r=>updatedUserDto.RoleIds.Contains(r.Id)).ToList();
             //Проверяем все ли роли найдены
-            var notFoundRoleIds = updatedUserDTO.RoleIds.Except(roles.Select(r => r.Id)).ToList();
+            var notFoundRoleIds = updatedUserDto.RoleIds.Except(roles.Select(r => r.Id)).ToList();
 
             if (notFoundRoleIds.Any())
             {
@@ -130,7 +129,7 @@ namespace SimpleToDoApi.Controllers
             {
                 return StatusCode(500, "База данных не доступна " + e.Message);
             }
-            return Ok(UserMapper.ToDTO(existingUser));
+            return Ok(UserMapper.ToDto(existingUser));
         }
 
         [HttpDelete("{id}")]
