@@ -1,6 +1,5 @@
 using SimpleToDoApi.DTO;
 using SimpleToDoApi.Models;
-using SimpleToDoApi.Models.Enums;
 
 namespace SimpleToDoApi.Mappers;
 
@@ -8,20 +7,20 @@ public static class UserMapper
 {
     public static UserDTO ToDTO(User user) => new UserDTO 
         { 
+            Id = user.Id,
             UserName = user.UserName, 
             Email = user.Email, 
-            Role = user.Role.ToString() 
+            Roles = user.Roles.Select(r=>r.Name).ToList() ?? new List<string>()
         };
 
-    public static User FromDTO(UserDTO dto)
+    public static User FromDTO(CreateUserDTO dto, IEnumerable<Role> allRoles, string passwordHash)
     {
-        Enum.TryParse(dto.Role, out UserRole role);
         return new User
         {
-            Id = dto.Id,
-            UserName = dto.UserName, 
-            Email = dto.Email, 
-            Role = role
+            UserName = dto.UserName,
+            Email = dto.Email,
+            PasswordHash = passwordHash,
+            Roles = allRoles.ToList()
         };
     }
 }

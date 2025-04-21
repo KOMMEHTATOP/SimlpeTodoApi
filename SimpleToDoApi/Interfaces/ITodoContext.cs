@@ -8,6 +8,7 @@ namespace SimpleToDoApi.Data
     {
         DbSet<ToDoItem> ToDoItems { get; }
         DbSet<User> Users { get; }
+        DbSet<Role> Roles { get; }
         int SaveChanges();
     }
 }

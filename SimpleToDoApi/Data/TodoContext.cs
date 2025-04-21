@@ -13,12 +13,7 @@ namespace SimpleToDoApi.Data
 
         public DbSet<ToDoItem> ToDoItems { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<Role> Roles { get; set; }
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.Entity<User>()
-                .Property(u => u.Role)
-                .HasConversion<string>();
-        }
     }
 }
