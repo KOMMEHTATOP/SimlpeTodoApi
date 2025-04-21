@@ -1,13 +1,16 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using SimpleToDoApi.Models.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace SimpleToDoApi.DTO
 {
     public class UserDTO
     {
-        public int id { get; set; }
+        public int Id { get; set; }
         [Required]
         public string? UserName { get; set; }
         [Required]
-        public string? Role { get; set; }
+        public string? Email { get; set; }
+        [Required]
+        public string Role { get; set; }
     }
 }

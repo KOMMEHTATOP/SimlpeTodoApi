@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SimpleToDoApi.Data;
-using SimpleToDoApi.DTO;
+using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Controllers
 {
@@ -19,7 +19,7 @@ namespace SimpleToDoApi.Controllers
         }
 
         [HttpPost]
-        public IActionResult AddUser([FromBody] UserDTO user)
+        public IActionResult AddUser([FromBody] User user)
         {
             if (_context.Users.Any(u => u.UserName == user.UserName))
             {
@@ -46,7 +46,7 @@ namespace SimpleToDoApi.Controllers
         }
 
         [HttpGet("{id}")]
-        public ActionResult<UserDTO> GetUser(int id)
+        public ActionResult<User> GetUser(int id)
         {
             if (!ModelState.IsValid)
             {
@@ -64,14 +64,14 @@ namespace SimpleToDoApi.Controllers
 
 
         [HttpPut("{id}")]
-        public IActionResult PutUser(int id, UserDTO updatedUser)
+        public IActionResult PutUser(int id, User updatedUser)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            if (id != updatedUser.id)
+            if (id != updatedUser.Id)
             {
                 return BadRequest("ID в URL и теле запроса не совпадают");
             }

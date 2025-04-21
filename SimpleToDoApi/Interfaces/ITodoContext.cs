@@ -7,7 +7,7 @@ namespace SimpleToDoApi.Data
     public interface ITodoContext
     {
         DbSet<ToDoItem> ToDoItems { get; }
-        DbSet<UserDTO> Users { get; }
+        DbSet<User> Users { get; }
         int SaveChanges();
     }
 }
