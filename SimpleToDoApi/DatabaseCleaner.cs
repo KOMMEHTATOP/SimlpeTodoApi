@@ -25,5 +25,12 @@ namespace SimpleToDoApi
             _context.Database.ExecuteSqlRaw("DELETE FROM [Users]; DBCC CHECKIDENT ('[Users]', RESEED, 0);");
             _context.SaveChanges();
         }
+        
+        // Удалить все роли
+        public void ClearRoles()
+        {
+            _context.Database.ExecuteSqlRaw("DELETE FROM [Roles]; DBCC CHECKIDENT ('[Roles]', RESEED, 0);");
+            _context.SaveChanges();
+        }
     }
 }

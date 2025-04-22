@@ -7,7 +7,6 @@ public static class UserMapper
 {
     public static UserDto ToDto(User user) => new UserDto 
         { 
-            Id = user.Id,
             UserName = user.UserName, 
             Email = user.Email, 
             Roles = user.Roles.Select(r=>r.Name).ToList() ?? new List<string>()

@@ -53,7 +53,10 @@ namespace SimpleToDoApi.Controllers
 
             _context.ToDoItems.Add(todoItem);
             _context.SaveChanges();
-            return CreatedAtAction(nameof(GetTodoItem), new { id = todoItem.Id }, todoItem);
+            return CreatedAtAction(nameof(GetTodoItem), new
+            {
+                id = todoItem.Id
+            }, todoItem);
         }
 
 
@@ -73,6 +76,7 @@ namespace SimpleToDoApi.Controllers
             }
 
             var existingItem = _context.ToDoItems.Find(id);
+
             if (existingItem == null)
             {
                 return NotFound();
@@ -99,23 +103,36 @@ namespace SimpleToDoApi.Controllers
         public IActionResult DeleteTodoItem(int id)
         {
             var todoItem = _context.ToDoItems.Find(id);
+
             if (todoItem == null)
             {
                 return NotFound();
             }
 
-            _context.ToDoItems.Remove(todoItem);
-            _context.SaveChanges();
-
-            return NoContent();
+            try
+            {
+                _context.ToDoItems.Remove(todoItem);
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Ошибка при удалении задач.");
+            }
         }
 
         [HttpDelete("delete-all")]
         [Authorize(Roles = "Admin")]
         public IActionResult DeleteAll()
         {
-            _databaseCleaner?.ClearTodoItems();
-            return Ok("Все задачи были удалены.");
+            try
+            {
+                _databaseCleaner.ClearTodoItems();
+                return Ok("Все задачи были удалены.");
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Ошибка при удалении задач.");
+            }
         }
     }
 }
