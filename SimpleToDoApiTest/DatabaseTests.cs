@@ -1,153 +1,162 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Moq;
+﻿using System;
+using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using SimpleToDoApi.Data;
 using SimpleToDoApi.Models;
-using System.Collections.Generic;
+using Xunit;
 
-namespace SimpleToDoApiTest
+public class DatabaseTests
 {
-    public class DatabaseTests
+    private readonly DbContextOptions<TodoContext> _options;
+    public DatabaseTests()
     {
-        private readonly DbContextOptions<TodoContext> _options;
-        public DatabaseTests()
-        {
-            // Общая настройка базы данных для всех тестов
-            _options = new DbContextOptionsBuilder<TodoContext>()
-                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Уникальная база данных для каждого теста
-                .Options;
-        }
+        _options = new DbContextOptionsBuilder<TodoContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+    }
 
-        [Fact]
-        public void AddToDoItem_ShouldAddItemToDatabase()
+    [Fact]
+    public void AddToDoItem_ShouldAddItemToDatabase()
+    {
+        using (var context = new TodoContext(_options))
         {
-            using (var context = new TodoContext(_options))
+            var user = new User { UserName = "testuser", Email = "test@mail.com", PasswordHash = "hash" };
+            context.Users.Add(user);
+            context.SaveChanges();
+
+            var todoItem = new ToDoItem
             {
-                // Act: Добавляем элемент в базу данных
-                var todoItem = new ToDoItem { Title = "Test Task", IsComplete = false };
-                context.ToDoItems.Add(todoItem);
-                context.SaveChanges();
+                Title = "Test Task",
+                Description = "desc",
+                IsComplete = false,
+                Updated = DateTime.Now,
+                CreatedByUserId = user.Id
+            };
+            context.ToDoItems.Add(todoItem);
+            context.SaveChanges();
 
-                // Assert: Проверяем, что элемент добавлен
-                var addedItem = context.ToDoItems.FirstOrDefault(t => t.Title == "Test Task");
-                Assert.NotNull(addedItem); // Элемент существует
-                Assert.Equal("Test Task", addedItem.Title); // Имя совпадает
-                Assert.False(addedItem.IsComplete); // Статус совпадает
-            }
+            var addedItem = context.ToDoItems
+                .Include(t => t.CreatedByUser)
+                .FirstOrDefault(t => t.Title == "Test Task");
+            Assert.NotNull(addedItem);
+            Assert.Equal("Test Task", addedItem.Title);
+            Assert.False(addedItem.IsComplete);
+            Assert.Equal(user.Id, addedItem.CreatedByUserId);
         }
+    }
 
-        [Fact]
-        public void RemoveToDoItem_FromDatabase()
+    [Fact]
+    public void RemoveToDoItem_FromDatabase()
+    {
+        using (var context = new TodoContext(_options))
         {
-            using (var context = new TodoContext(_options))
-            {
-                var todoItem = new ToDoItem { Title = "Test Task", IsComplete = false };
-                var todoItem1 = new ToDoItem { Title = "Test Task1", IsComplete = true };
-                var todoItem2 = new ToDoItem { Title = "Test Task2", IsComplete = false };
-                context.ToDoItems.Add(todoItem);
-                context.ToDoItems.Add(todoItem1);
-                context.ToDoItems.Add(todoItem2);
-                context.SaveChanges();
+            var user = new User { UserName = "testuser", Email = "test@mail.com", PasswordHash = "hash" };
+            context.Users.Add(user);
+            context.SaveChanges();
 
-                var checkRemoveTodoItem = context.ToDoItems.Remove(todoItem2);
-                context.SaveChanges();
-                Assert.Equal(2, context.ToDoItems.Count());
-            }
+            var todoItem1 = new ToDoItem { Title = "Task1", Description = "", IsComplete = true, Updated = DateTime.Now, CreatedByUserId = user.Id };
+            var todoItem2 = new ToDoItem { Title = "Task2", Description = "", IsComplete = false, Updated = DateTime.Now, CreatedByUserId = user.Id };
+            context.ToDoItems.AddRange(todoItem1, todoItem2);
+            context.SaveChanges();
+
+            context.ToDoItems.Remove(todoItem2);
+            context.SaveChanges();
+            Assert.Single(context.ToDoItems);
         }
+    }
 
-        [Fact]
-        public void AccessItem_ByIndex()
+    [Fact]
+    public void AccessItem_ByIndex()
+    {
+        using (var context = new TodoContext(_options))
         {
-            using (var context = new TodoContext(_options))
-            {
-                // Arrange: Добавляем элементы
-                var todoItem = new ToDoItem { Title = "Test Task", IsComplete = false };
-                var todoItem1 = new ToDoItem { Title = "Test Task1", IsComplete = false };
-                var todoItem2 = new ToDoItem { Title = "Test Task1", IsComplete = false };
-                context.ToDoItems.Add(todoItem);
-                context.ToDoItems.Add(todoItem1);
-                context.ToDoItems.Add(todoItem2);
-                context.SaveChanges();
+            var user = new User { UserName = "testuser", Email = "test@mail.com", PasswordHash = "hash" };
+            context.Users.Add(user);
+            context.SaveChanges();
 
-                // Act: Преобразуем DbSet в список для доступа по индексу
-                var items = context.ToDoItems.ToList();
+            context.ToDoItems.Add(new ToDoItem { Title = "Task1", Description = "", IsComplete = false, Updated = DateTime.Now, CreatedByUserId = user.Id });
+            context.ToDoItems.Add(new ToDoItem { Title = "Task2", Description = "", IsComplete = false, Updated = DateTime.Now, CreatedByUserId = user.Id });
+            context.SaveChanges();
 
-                // Assert: Проверяем элемент по индексу
-                Assert.Equal("Test Task1", items[1].Title);
-            }
+            var items = context.ToDoItems.OrderBy(t => t.Id).ToList();
+            Assert.Equal("Task2", items[1].Title);
         }
+    }
 
-        [Fact]
-        public void UpdateTodoItem_InDatabase()
+    [Fact]
+    public void UpdateTodoItem_InDatabase()
+    {
+        using (var context = new TodoContext(_options))
         {
-            using (var context = new TodoContext(_options))
-            {
-                // Arrange: Добавляем элемент
-                var todoItem = new ToDoItem { Title = "Test Task", IsComplete = false };
-                context.ToDoItems.Add(todoItem);
-                context.SaveChanges();
+            var user = new User { UserName = "testuser", Email = "test@mail.com", PasswordHash = "hash" };
+            context.Users.Add(user);
+            context.SaveChanges();
 
-                // Act: Обновляем элемент
-                var itemToUpdate = context.ToDoItems.FirstOrDefault(t => t.Title == "Test Task");
-                itemToUpdate.IsComplete = true;
-                context.SaveChanges();
+            var todoItem = new ToDoItem { Title = "Test Task", Description = "", IsComplete = false, Updated = DateTime.Now, CreatedByUserId = user.Id };
+            context.ToDoItems.Add(todoItem);
+            context.SaveChanges();
 
-                // Assert: Проверяем, что элемент обновлён
-                var updatedItem = context.ToDoItems.FirstOrDefault(t => t.Title == "Test Task");
-                Assert.NotNull(updatedItem);
-                Assert.True(updatedItem.IsComplete);
-            }
+            var itemToUpdate = context.ToDoItems.FirstOrDefault(t => t.Title == "Test Task");
+            itemToUpdate.IsComplete = true;
+            itemToUpdate.Updated = DateTime.Now;
+            context.SaveChanges();
+
+            var updatedItem = context.ToDoItems.FirstOrDefault(t => t.Title == "Test Task");
+            Assert.NotNull(updatedItem);
+            Assert.True(updatedItem.IsComplete);
         }
+    }
 
-        [Fact]
-        public void GetAllTodoItems_FromDatabase()
+    [Fact]
+    public void GetAllTodoItems_FromDatabase()
+    {
+        using (var context = new TodoContext(_options))
         {
-            using (var context = new TodoContext(_options))
-            {
-                // Arrange: Добавляем несколько элементов
-                context.ToDoItems.Add(new ToDoItem { Title = "Task 1", IsComplete = false });
-                context.ToDoItems.Add(new ToDoItem { Title = "Task 2", IsComplete = true });
-                context.SaveChanges();
+            var user = new User { UserName = "testuser", Email = "test@mail.com", PasswordHash = "hash" };
+            context.Users.Add(user);
+            context.SaveChanges();
 
-                // Act: Получаем все элементы
-                var allItems = context.ToDoItems.ToList();
+            context.ToDoItems.Add(new ToDoItem { Title = "Task 1", Description = "", IsComplete = false, Updated = DateTime.Now, CreatedByUserId = user.Id });
+            context.ToDoItems.Add(new ToDoItem { Title = "Task 2", Description = "", IsComplete = true, Updated = DateTime.Now, CreatedByUserId = user.Id });
+            context.SaveChanges();
 
-                // Assert: Проверяем количество элементов
-                Assert.Equal(2, allItems.Count);
-                Assert.Contains(allItems, t => t.Title == "Task 1");
-                Assert.Contains(allItems, t => t.Title == "Task 2");
-            }
+            var allItems = context.ToDoItems.ToList();
+            Assert.Equal(2, allItems.Count);
+            Assert.Contains(allItems, t => t.Title == "Task 1");
+            Assert.Contains(allItems, t => t.Title == "Task 2");
         }
+    }
 
-        [Fact]
-        public void GetCompletedTodoItems_FromDatabase()
+    [Fact]
+    public void GetCompletedTodoItems_FromDatabase()
+    {
+        using (var context = new TodoContext(_options))
         {
-            using (var context = new TodoContext(_options))
-            {
-                // Arrange: Добавляем несколько элементов
-                context.ToDoItems.Add(new ToDoItem { Title = "Task 1", IsComplete = false });
-                context.ToDoItems.Add(new ToDoItem { Title = "Task 2", IsComplete = true });
-                context.SaveChanges();
+            var user = new User { UserName = "testuser", Email = "test@mail.com", PasswordHash = "hash" };
+            context.Users.Add(user);
+            context.SaveChanges();
 
-                // Act: Получаем только завершённые задачи
-                var completedItems = context.ToDoItems.Where(t => t.IsComplete).ToList();
+            context.ToDoItems.Add(new ToDoItem { Title = "Task 1", Description = "", IsComplete = false, Updated = DateTime.Now, CreatedByUserId = user.Id });
+            context.ToDoItems.Add(new ToDoItem { Title = "Task 2", Description = "", IsComplete = true, Updated = DateTime.Now, CreatedByUserId = user.Id });
+            context.SaveChanges();
 
-                // Assert: Проверяем количество завершённых задач
-                Assert.Single(completedItems);
-                Assert.Equal("Task 2", completedItems[0].Title);
-            }
+            var completedItems = context.ToDoItems.Where(t => t.IsComplete).ToList();
+            Assert.Single(completedItems);
+            Assert.Equal("Task 2", completedItems[0].Title);
         }
+    }
 
-        [Fact]
-        public void GetTodoItem_ThatDoesNotExist()
+    [Fact]
+    public void GetTodoItem_ThatDoesNotExist()
+    {
+        using (var context = new TodoContext(_options))
         {
-            using (var context = new TodoContext(_options))
-            {
-                // Act: Пытаемся получить элемент, которого нет в базе
-                var item = context.ToDoItems.FirstOrDefault(t => t.Title == "Nonexistent Task");
+            var user = new User { UserName = "testuser", Email = "test@mail.com", PasswordHash = "hash" };
+            context.Users.Add(user);
+            context.SaveChanges();
 
-                // Assert: Проверяем, что результат null
-                Assert.Null(item);
-            }
+            var item = context.ToDoItems.FirstOrDefault(t => t.Title == "Nonexistent Task");
+            Assert.Null(item);
         }
     }
 }

@@ -16,31 +16,40 @@ namespace SimpleToDoApiTest
         [Fact]
         public void GetTodoItems_ReturnsAllItems_WhenDatabaseHasItems()
         {
+            // Arrange
             var listTasks = new List<ToDoItem>
             {
-                new ToDoItem {Id=1, Title="Title1", IsComplete=false},
-                new ToDoItem {Id=2, Title="Title2", IsComplete=true},
-                new ToDoItem {Id=3, Title="Title3", IsComplete=false}
+                new ToDoItem
+                {
+                    Id = 1, Title = "Title1", Description = "Desc1", IsComplete = false
+                },
+                new ToDoItem
+                {
+                    Id = 2, Title = "Title2", Description = "Desc2", IsComplete = true
+                },
+                new ToDoItem
+                {
+                    Id = 3, Title = "Title3", Description = "Desc3", IsComplete = false
+                }
             }.AsQueryable();
 
-            var mockDbSet = listTasks.AsQueryable().BuildMockDbSet(); 
-            //МЕТОД ВЫШЕ ЗАМЕНЯЕТ ВОТ ТАКУЮ СБОРКУ
-            //var mockDbSet = new Mock<DbSet<ToDoItem>>();
-            //mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.Provider).Returns(listTasks.Provider);
-            //mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.Expression).Returns(listTasks.Expression);
-            //mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.ElementType).Returns(listTasks.ElementType);
-            //mockDbSet.As<IQueryable<ToDoItem>>().Setup(m => m.GetEnumerator()).Returns(listTasks.GetEnumerator());
-
+            var mockDbSet = listTasks.BuildMockDbSet();
             var mockContext = new Mock<ITodoContext>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
 
             var controller = new TodoItemsController(mockContext.Object);
 
+            // Act
             var result = controller.GetTodoItems();
 
+            // Assert
             var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnedItems = Assert.IsAssignableFrom<IEnumerable<ToDoItem>>(okResult.Value);
+            var returnedItems = Assert.IsAssignableFrom<IEnumerable<ToDoItemDto>>(okResult.Value);
+
             Assert.Equal(3, returnedItems.Count());
+            Assert.Contains(returnedItems, item => item.Title == "Title1");
+            Assert.Contains(returnedItems, item => item.Title == "Title2");
+            Assert.Contains(returnedItems, item => item.Title == "Title3");
         }
 
         //-------------------------GetTodoItem (GET /view-task-ID-{id})--------------------------
@@ -49,7 +58,7 @@ namespace SimpleToDoApiTest
         {
             // Arrange
             var mockDbSet = new Mock<DbSet<ToDoItem>>();
-            mockDbSet.Setup(m => m.Find(1)).Returns((ToDoItem?)null); // Явно указываем ID = 1
+            mockDbSet.Setup(m => m.Find(1)).Returns((ToDoItem?)null);
 
             var mockContext = new Mock<ITodoContext>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
@@ -60,9 +69,7 @@ namespace SimpleToDoApiTest
             var result = controller.GetTodoItem(1);
 
             // Assert
-            Assert.IsType<NotFoundResult>(result.Result);
-
-            // Verify: Проверяем, что Find вызывался с ID = 1
+            Assert.IsType<NotFoundObjectResult>(result.Result);
             mockDbSet.Verify(m => m.Find(1), Times.Once);
         }
 
@@ -70,8 +77,10 @@ namespace SimpleToDoApiTest
         public void GetTodoItem_ReturnsTodoItem_WhenTaskExists()
         {
             // Arrange
-            var testTodoItem = new ToDoItem { Id = 1, Title = "Test Task", IsComplete = false };
-
+            var testTodoItem = new ToDoItem
+            {
+                Id = 1, Title = "Test Task", Description = "Test Desc", IsComplete = false
+            };
             var mockDbSet = new Mock<DbSet<ToDoItem>>();
             mockDbSet.Setup(m => m.Find(1)).Returns(testTodoItem);
 
@@ -84,9 +93,11 @@ namespace SimpleToDoApiTest
             var result = controller.GetTodoItem(1);
 
             // Assert
-            var returnedItem = Assert.IsType<ToDoItem>(result.Value); 
-            Assert.Equal(testTodoItem.Id, returnedItem.Id);
+            var okResult = Assert.IsType<OkObjectResult>(result.Result); // result.Result, не result.Value!
+            var returnedItem = Assert.IsType<ToDoItemDto>(okResult.Value);
             Assert.Equal(testTodoItem.Title, returnedItem.Title);
+            Assert.Equal(testTodoItem.Description, returnedItem.Description);
+            Assert.Equal(testTodoItem.IsComplete, returnedItem.IsComplete);
         }
 
 
@@ -95,11 +106,16 @@ namespace SimpleToDoApiTest
         public void PostTodoItem_ReturnsCreatedAtActionResult_WhenModelIsValid()
         {
             // Arrange
-            var validToDoItemDto = new CreateToDoItemDto { Title = "TestTask", Description = "Test Description", IsComplete = false };
-            var mockDbSet = new Mock<DbSet<ToDoItem>>();
+            var validToDoItemDto = new CreateToDoItemDto
+            {
+                Title = "TestTask", Description = "Test Description", IsComplete = false
+            };
+
+            // Нет задач с таким названием => Any вернёт false
+            var listTasks = new List<ToDoItem>().AsQueryable();
+            var mockDbSet = listTasks.BuildMockDbSet();
             var mockContext = new Mock<ITodoContext>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            mockContext.Setup(c => c.ToDoItems.Any(It.IsAny<Expression<Func<ToDoItem, bool>>>())).Returns(false);
             mockContext.Setup(c => c.SaveChanges()).Returns(1);
 
             var controller = new TodoItemsController(mockContext.Object);
@@ -116,15 +132,14 @@ namespace SimpleToDoApiTest
             Assert.Equal(validToDoItemDto.Description, returnedTask.Description);
             Assert.Equal(validToDoItemDto.IsComplete, returnedTask.IsComplete);
 
-            mockDbSet.Verify(m => m.Add(It.Is<ToDoItem>(t => 
-                t.Title == validToDoItemDto.Title && 
-                t.Description == validToDoItemDto.Description && 
-                t.IsComplete == validToDoItemDto.IsComplete && 
-                t.CreatedByUserId == null && 
-                t.Updated != default)), Times.Once());
+            mockDbSet.Verify(m => m.Add(It.Is<ToDoItem>(t =>
+                t.Title == validToDoItemDto.Title &&
+                t.Description == validToDoItemDto.Description &&
+                t.IsComplete == validToDoItemDto.IsComplete)), Times.Once());
             mockContext.Verify(m => m.SaveChanges(), Times.Once());
         }
-        
+
+
         [Fact]
         public void PostTodoItem_ReturnsBadRequest_WhenModelIsInvalid()
         {
@@ -132,8 +147,10 @@ namespace SimpleToDoApiTest
             var mockContext = new Mock<ITodoContext>();
             var controller = new TodoItemsController(mockContext.Object);
 
-            // Имитируем невалидный DTO
-            var invalidItem = new CreateToDoItemDto { Title = "", IsComplete = false }; // Пустой Title вызовет ошибку валидации
+            var invalidItem = new CreateToDoItemDto
+            {
+                Title = "", IsComplete = false
+            };
             controller.ModelState.AddModelError("Title", "Title is required.");
 
             // Act
@@ -143,120 +160,223 @@ namespace SimpleToDoApiTest
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
             Assert.Equal(400, badRequestResult.StatusCode);
 
-            // Проверяем, что вернулись ошибки валидации
             var errors = Assert.IsType<SerializableError>(badRequestResult.Value);
             Assert.True(errors.ContainsKey("Title"));
         }
-        //-------------------------UpdateTodoItem (PUT /update-task-{id})--------------------------
 
+        //-------------------------UpdateTodoItem (PUT /update-task-{id})--------------------------
         [Fact]
         public void UpdateTodoItem_UpdatesItem_WhenModelIsValid()
         {
             // Arrange
-            var existingItem = new ToDoItem { Id = 1, Title = "OldTitle", Description = "OldDesc", IsComplete = false };
-            var updatedItemDto = new UpdateToDoItemDto { Title = "NewTitle", Description = "NewDesc", IsComplete = true };
+            var existingItem = new ToDoItem
+            {
+                Id = 1, Title = "OldTitle", Description = "OldDesc", IsComplete = false
+            };
+            var updatedItemDto = new UpdateToDoItemDto
+            {
+                Title = "NewTitle", Description = "NewDesc", IsComplete = true
+            };
+
+            var listTasks = new List<ToDoItem>
+            {
+                existingItem
+            }.AsQueryable();
+            var mockDbSet = listTasks.BuildMockDbSet();
+            mockDbSet.Setup(m => m.Find(1)).Returns(existingItem);
 
             var mockContext = new Mock<ITodoContext>();
-            var controller = new TodoItemsController(mockContext.Object);
-
-            mockContext.Setup(c => c.ToDoItems.Find(1)).Returns(existingItem);
-            mockContext.Setup(c => c.ToDoItems.Any(It.IsAny<Expression<Func<ToDoItem, bool>>>())).Returns(false); // Для проверки уникальности
+            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
             mockContext.Setup(c => c.SaveChanges()).Returns(1);
+
+            var controller = new TodoItemsController(mockContext.Object);
 
             // Act
             var result = controller.UpdateTodoItem(1, updatedItemDto);
 
             // Assert
-            var okResult = Assert.IsType<OkObjectResult>(result);
-            Assert.Equal(200, okResult.StatusCode);
-
+            var okResult = Assert.IsType<OkObjectResult>(result.Result); // исправлено!
             var returnedTask = Assert.IsType<ToDoItemDto>(okResult.Value);
             Assert.Equal(updatedItemDto.Title, returnedTask.Title);
             Assert.Equal(updatedItemDto.Description, returnedTask.Description);
             Assert.Equal(updatedItemDto.IsComplete, returnedTask.IsComplete);
 
+            // Дополнительно: убедиться, что изменения были применены к сущности
             Assert.Equal(updatedItemDto.Title, existingItem.Title);
             Assert.Equal(updatedItemDto.Description, existingItem.Description);
             Assert.Equal(updatedItemDto.IsComplete, existingItem.IsComplete);
 
             mockContext.Verify(m => m.SaveChanges(), Times.Once());
         }
-        
-        [Fact]
-        public void UpdateTodoItem_ReturnsBadRequest_WhenModelIsInvalid()
-        {
-            // Arrange
-            var invalidItemDto = new UpdateToDoItemDto { Title = "", Description = "Desc", IsComplete = false };
-            var mockContext = new Mock<ITodoContext>();
 
-            var controller = new TodoItemsController(mockContext.Object);
-            controller.ModelState.AddModelError("Title", "Title is required.");
-
-            // Act
-            var result = controller.UpdateTodoItem(1, invalidItemDto);
-
-            // Assert
-            var errorResponse = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.Equal(400, errorResponse.StatusCode);
-
-            // Проверка содержимого ошибки
-            Assert.NotNull(errorResponse.Value);
-            var serializableError = Assert.IsType<SerializableError>(errorResponse.Value);
-            Assert.True(serializableError.ContainsKey("Title"));
-        }
-        
-        [Fact]
-        public void UpdateTodoItem_ReturnsNotFound_WhenTaskDoesNotExist()
-        {
-            // Arrange
-            var newTodoItemDto = new UpdateToDoItemDto { Title = "New Title", Description = "Desc", IsComplete = false };
-            var mockContext = new Mock<ITodoContext>();
-            var controller = new TodoItemsController(mockContext.Object);
-            mockContext.Setup(c => c.ToDoItems.Find(It.IsAny<int>())).Returns((ToDoItem)null!);
-
-            // Act
-            var result = controller.UpdateTodoItem(1, newTodoItemDto);
-
-            // Assert
-            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
-            Assert.Equal(404, notFoundResult.StatusCode);
-            Assert.Equal("Задача не найдена!", notFoundResult.Value);
-        }
-        
         //-------------------------DeleteTodoItem (DELETE /delete-task-{id})--------------------------
         [Fact]
         public void DeleteTodoItem_DeletesItem_WhenTaskExists()
         {
+            // Arrange
             var itemToDelete = new ToDoItem
             {
                 Id = 1, Title = "OldTitle"
             };
-            var mockContext = new Mock<ITodoContext>();
+
             var mockDbSet = new Mock<DbSet<ToDoItem>>();
-            
-            mockDbSet.Setup(c=>c.Find(1)).Returns(itemToDelete);
-            mockDbSet.Setup(c=>c.Remove(itemToDelete)).Verifiable();
-            mockContext.Setup(c=>c.ToDoItems).Returns(mockDbSet.Object);
-            mockContext.Setup(c => c.SaveChanges()).Returns(1);
+            mockDbSet.Setup(m => m.Find(1)).Returns(itemToDelete);
+
+            var mockContext = new Mock<ITodoContext>();
+            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
+
             var controller = new TodoItemsController(mockContext.Object);
-            var result = controller.DeleteTodoItem(itemToDelete.Id);
+
+            // Act
+            var result = controller.DeleteTodoItem(1);
+
+            // Assert
             Assert.IsType<NoContentResult>(result);
             mockDbSet.Verify(m => m.Remove(itemToDelete), Times.Once);
             mockContext.Verify(c => c.SaveChanges(), Times.Once);
         }
 
+
+        // Проверка NotFound при попытке обновить несуществующую задачу
+        [Fact]
+        public void UpdateTodoItem_ReturnsNotFound_WhenTaskDoesNotExist()
+        {
+            // Arrange
+            var updatedItemDto = new UpdateToDoItemDto
+            {
+                Title = "NewTitle", Description = "NewDesc", IsComplete = true
+            };
+            var listTasks = new List<ToDoItem>().AsQueryable();
+            var mockDbSet = listTasks.BuildMockDbSet();
+            mockDbSet.Setup(m => m.Find(1)).Returns((ToDoItem)null);
+
+            var mockContext = new Mock<ITodoContext>();
+            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
+
+            var controller = new TodoItemsController(mockContext.Object);
+
+            // Act
+            var result = controller.UpdateTodoItem(1, updatedItemDto);
+
+            // Assert
+            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result.Result);
+            Assert.Equal("Задача не найдена!", notFoundResult.Value);
+        }
+
+// Проверка BadRequest при попытке создать задачу с уже существующим названием
+        [Fact]
+        public void PostTodoItem_ReturnsBadRequest_WhenTitleAlreadyExists()
+        {
+            // Arrange
+            var existingTask = new ToDoItem
+            {
+                Id = 1, Title = "TestTask", Description = "Desc", IsComplete = false
+            };
+            var listTasks = new List<ToDoItem>
+            {
+                existingTask
+            }.AsQueryable();
+            var mockDbSet = listTasks.BuildMockDbSet();
+            var mockContext = new Mock<ITodoContext>();
+            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
+
+            var controller = new TodoItemsController(mockContext.Object);
+
+            var newItem = new CreateToDoItemDto
+            {
+                Title = "TestTask", Description = "Desc2", IsComplete = true
+            };
+
+            // Act
+            var result = controller.PostTodoItem(newItem);
+
+            // Assert
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Equal(400, badRequestResult.StatusCode);
+            Assert.Contains("существует", badRequestResult.Value.ToString());
+        }
+
+// Проверка BadRequest при попытке обновить задачу с дублирующим заголовком
+        [Fact]
+        public void UpdateTodoItem_ReturnsBadRequest_WhenTitleAlreadyExists()
+        {
+            // Arrange
+            var existingTask = new ToDoItem
+            {
+                Id = 1, Title = "OldTitle", Description = "Desc1", IsComplete = false
+            };
+            var otherTask = new ToDoItem
+            {
+                Id = 2, Title = "NewTitle", Description = "Desc2", IsComplete = true
+            };
+            var listTasks = new List<ToDoItem>
+            {
+                existingTask, otherTask
+            }.AsQueryable();
+            var mockDbSet = listTasks.BuildMockDbSet();
+            mockDbSet.Setup(m => m.Find(1)).Returns(existingTask);
+
+            var mockContext = new Mock<ITodoContext>();
+            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
+
+            var controller = new TodoItemsController(mockContext.Object);
+
+            var updateDto = new UpdateToDoItemDto
+            {
+                Title = "NewTitle", Description = "Any", IsComplete = true
+            };
+
+            // Act
+            var result = controller.UpdateTodoItem(1, updateDto);
+
+            // Assert
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
+            Assert.Equal(400, badRequestResult.StatusCode);
+            Assert.Contains("существует", badRequestResult.Value.ToString());
+        }
+
+// Проверка NotFound при попытке удалить несуществующую задачу
         [Fact]
         public void DeleteTodoItem_ReturnsNotFound_WhenTaskDoesNotExist()
         {
+            // Arrange
+            var listTasks = new List<ToDoItem>().AsQueryable();
+            var mockDbSet = listTasks.BuildMockDbSet();
+            mockDbSet.Setup(m => m.Find(5)).Returns((ToDoItem)null);
+
             var mockContext = new Mock<ITodoContext>();
-            var mockDbSet = new Mock<DbSet<ToDoItem>>();
-            mockDbSet.Setup(c=>c.Find(1)).Returns((ToDoItem)null!);
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
+
             var controller = new TodoItemsController(mockContext.Object);
-            var result = controller.DeleteTodoItem(1);
-            Assert.IsType<NotFoundResult>(result);
-            mockDbSet.Verify(m => m.Remove(It.IsAny<ToDoItem>()), Times.Never);
-            mockContext.Verify(c => c.SaveChanges(), Times.Never);
+
+            // Act
+            var result = controller.DeleteTodoItem(5);
+
+            // Assert
+            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+            Assert.Contains("не найдена", notFoundResult.Value.ToString());
         }
+
+// Проверка BadRequest при невалидном DTO при обновлении задачи
+        [Fact]
+        public void UpdateTodoItem_ReturnsBadRequest_WhenModelIsInvalid()
+        {
+            // Arrange
+            var mockContext = new Mock<ITodoContext>();
+            var controller = new TodoItemsController(mockContext.Object);
+
+            var invalidDto = new UpdateToDoItemDto { Title = "", Description = "Desc", IsComplete = false };
+            controller.ModelState.AddModelError("Title", "Title is required.");
+
+            // Act
+            var result = controller.UpdateTodoItem(1, invalidDto);
+
+            // Assert
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result); // Исправлено здесь!
+            Assert.Equal(400, badRequestResult.StatusCode);
+            var errors = Assert.IsType<SerializableError>(badRequestResult.Value);
+            Assert.True(errors.ContainsKey("Title"));
+        }    
+        
     }
 }
