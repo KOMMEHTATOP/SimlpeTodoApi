@@ -17,7 +17,7 @@ public static class RoleMapper
     {
         return new Role()
         {
-            Id = roleDto.Id, Name = roleDto.Name, Description = roleDto.Description
+            Name = roleDto.Name, Description = roleDto.Description
         };
     }
 }

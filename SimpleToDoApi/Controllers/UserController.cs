@@ -19,20 +19,25 @@ namespace SimpleToDoApi.Controllers
             _databaseCleaner = databaseCleaner;
         }
 
-        [HttpPost]
+        [HttpPost("add-new-user")]
         public IActionResult AddUser([FromBody] CreateUserDto createUserDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
-            
+
             if (_context.Users.Any(u => u.UserName == createUserDto.UserName))
             {
                 return BadRequest("User already exists.");
             }
 
-            var roles = _context.Roles.Where(r=>createUserDto.RoleIds.Contains(r.Id)).ToList();
+            // 1. Получаем роли из БД
+            var roles = _context.Roles
+                .Where(r => createUserDto.RoleIds.Contains(r.Id))
+                .ToList();
+
+            // 2. Проверяем, все ли роли найдены
             var notFoundRoleIds = createUserDto.RoleIds.Except(roles.Select(r => r.Id)).ToList();
 
             if (notFoundRoleIds.Any())
@@ -41,9 +46,14 @@ namespace SimpleToDoApi.Controllers
             }
 
             var passwordHash = createUserDto.Password;
-            
-            var user = UserMapper.FromDto(createUserDto, roles, passwordHash);
-                
+
+            // 4. Маппим DTO → User (без ролей и пароля)
+            var user = UserMapper.FromDto(createUserDto);
+
+            // 5. Заполняем недостающие данные
+            user.PasswordHash = passwordHash;
+            user.Roles = roles;
+
             try
             {
                 _context.Users.Add(user);
@@ -53,60 +63,66 @@ namespace SimpleToDoApi.Controllers
             {
                 return StatusCode(500, "База не доступна " + ex.Message);
             }
-            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, UserMapper.ToDto(user));
+
+            return CreatedAtAction(nameof(GetUser), new
+            {
+                id = user.Id
+            }, UserMapper.ToDto(user));
         }
 
-        [HttpGet]
+        [HttpGet("get-all-users")]
         public IActionResult GetUsers()
         {
-            var users = _context.Users.ToList();
+            var users = _context.Users
+                .Include(u => u.Roles)
+                .ToList();
             var usersDto = users.Select(u => UserMapper.ToDto(u)).ToList();
             return Ok(usersDto);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("get-user/{id}")]
         public ActionResult GetUser(int id)
         {
             var user = _context.Users
                 .Include(u => u.Roles)
                 .FirstOrDefault(u => u.Id == id);
-            
+
             if (user == null)
             {
                 return NotFound("Пользователь не найден");
             }
-            
+
             return Ok(UserMapper.ToDto(user));
         }
 
 
-        [HttpPut("{id}")]
-        public IActionResult PutUser(int id, UpdateUserDto updatedUserDto)
+        [HttpPut("update-user/{id}")]
+        public IActionResult PutUser([FromRoute] int id, UpdateUserDto updatedUserDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            //находим пользователя в бд
+            //находим пользователя в бд и разворачиваем его роли (include)
             var existingUser = _context.Users
-                .Include(u=>u.Roles)
-                .FirstOrDefault(u=>u.Id == id);
+                .Include(u => u.Roles)
+                .FirstOrDefault(u => u.Id == id);
 
             if (existingUser == null)
             {
                 return NotFound("Пользователь не найден");
             }
 
-            if (_context.Users.Any(u=>u.UserName == updatedUserDto.UserName && u.Id != id))
+            if (_context.Users.Any(u => u.UserName == updatedUserDto.UserName && u.Id != id))
             {
                 return BadRequest("Пользователь с таким именем уже существует.");
             }
-            
+
             existingUser.UserName = updatedUserDto.UserName;
-            
+
             //получаем из базы роли по id из DTO
-            var roles = _context.Roles.Where(r=>updatedUserDto.RoleIds.Contains(r.Id)).ToList();
+            var roles = _context.Roles.Where(r => updatedUserDto.RoleIds.Contains(r.Id)).ToList();
             //Проверяем все ли роли найдены
             var notFoundRoleIds = updatedUserDto.RoleIds.Except(roles.Select(r => r.Id)).ToList();
 
@@ -119,6 +135,7 @@ namespace SimpleToDoApi.Controllers
             {
                 return BadRequest("Пользователь должен иметь хотя бы одну роль.");
             }
+
             existingUser.Roles = roles;
 
             try
@@ -129,6 +146,7 @@ namespace SimpleToDoApi.Controllers
             {
                 return StatusCode(500, "База данных не доступна " + e.Message);
             }
+
             return Ok(UserMapper.ToDto(existingUser));
         }
 
@@ -136,10 +154,12 @@ namespace SimpleToDoApi.Controllers
         public IActionResult DeleteUser(int id)
         {
             var user = _context.Users.Find(id);
+
             if (user == null)
             {
                 return NotFound("Пользователь не найден");
             }
+
             _context.Users.Remove(user);
             _context.SaveChanges();
             return NoContent();

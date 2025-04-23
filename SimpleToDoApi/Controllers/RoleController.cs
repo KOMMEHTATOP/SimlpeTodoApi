@@ -50,11 +50,11 @@ public class RoleController : Controller
     [HttpGet("role/{id}")]
     public IActionResult GetRole(int id)
     {
-        var role = _context.Roles.FirstOrDefault(r => r.Id == id);
+        var role = _context.Roles.Find(id);
 
         if (role == null)
         {
-            return NotFound("Роль не найдена");
+            return NotFound("Роль базе данных не найдена");
         }
 
         return Ok(RoleMapper.ToDto(role));
@@ -73,7 +73,7 @@ public class RoleController : Controller
     [HttpPut("update-role/{id}")]
     public IActionResult UpdateRole([FromRoute] int id, [FromBody] UpdateRoleDto roleDto)
     {
-        var existingRole = _context.Roles.FirstOrDefault(r => r.Id == id);
+        var existingRole = _context.Roles.Find(id);
 
         if (existingRole == null)
         {
@@ -127,6 +127,7 @@ public class RoleController : Controller
         try
         {
             _context.Roles.Remove(role);
+            _context.SaveChanges();
             return NoContent();
         }
         catch (Exception e)
@@ -139,6 +140,6 @@ public class RoleController : Controller
     public IActionResult DeleteAllRoles()
     {
         _databaseCleaner.ClearRoles();
-        return NoContent();
+        return Ok("Все роли были удалены!");
     }
 }

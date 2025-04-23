@@ -4,6 +4,7 @@ namespace SimpleToDoApi.Models;
 
 public class Role
 {
+    [Key]
     public int Id { get; set; }
     [Required(ErrorMessage = "Название роли обязательно должно быть заполнено!")]
     public string Name { get; set; }
