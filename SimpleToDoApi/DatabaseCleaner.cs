@@ -6,31 +6,27 @@ namespace SimpleToDoApi
     public class DatabaseCleaner
     {
         private readonly TodoContext _context;
-
-        public DatabaseCleaner(TodoContext context)
+        private DatabaseCleaner(TodoContext context)
         {
             _context = context;
         }
 
         // Удалить все задачи
-        public void ClearTodoItems()
+        public async Task ClearTodoItems()
         {
-            _context.Database.ExecuteSqlRaw("DELETE FROM [TodoItems]; DBCC CHECKIDENT ('[TodoItems]', RESEED, 0);");
-            _context.SaveChanges();
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM [TodoItems]; DBCC CHECKPOINT ('[TodoItems]', RESEED, 0);");
         }
 
         // Удалить всех пользователей
-        public void ClearUsers()
+        public async Task ClearUsers()
         {
-            _context.Database.ExecuteSqlRaw("DELETE FROM [Users]; DBCC CHECKIDENT ('[Users]', RESEED, 0);");
-            _context.SaveChanges();
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM [Users]; DBCC CHECKIDENT ('[Users]', RESEED, 0);");
         }
         
         // Удалить все роли
-        public void ClearRoles()
+        public async Task ClearRoles()
         {
-            _context.Database.ExecuteSqlRaw("DELETE FROM [Roles]; DBCC CHECKIDENT ('[Roles]', RESEED, 0);");
-            _context.SaveChanges();
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM [Roles]; DBCC CHECKIDENT ('[Roles]', RESEED, 0);");
         }
     }
 }

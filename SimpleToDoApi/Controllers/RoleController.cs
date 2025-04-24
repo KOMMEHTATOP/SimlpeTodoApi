@@ -1,42 +1,35 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SimpleToDoApi.Data;
 using SimpleToDoApi.DTO.Role;
 using SimpleToDoApi.Mappers;
 
 namespace SimpleToDoApi.Controllers;
 
-public class RoleController : Controller
+public class RoleController(ITodoContext context, DatabaseCleaner databaseCleaner) : Controller
 {
-    private readonly ITodoContext _context;
-    private readonly DatabaseCleaner _databaseCleaner;
-
-    public RoleController(ITodoContext context, DatabaseCleaner databaseCleaner)
-    {
-        _context = context;
-        _databaseCleaner = databaseCleaner;
-    }
-
     [HttpPost("create-newrole")]
-    public IActionResult CreateNewRole([FromBody] CreateRoleDto roleDto)
+    public async Task<ActionResult<RoleDto>> CreateNewRole([FromBody] CreateRoleDto roleDto)
     {
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        if (_context.Roles.Any(r => r.Name == roleDto.Name))
+        if (await context.Roles.AnyAsync(r => r.Name == roleDto.Name))
         {
             return BadRequest("Роль уже существует");
         }
 
         var newRole = RoleMapper.FromDto(roleDto);
 
+        context.Roles.Add(newRole);
+
         try
         {
-            _context.Roles.Add(newRole);
-            _context.SaveChanges();
+            await context.SaveChangesAsync();
         }
-        catch (Exception e)
+        catch (DbUpdateException e)
         {
             return StatusCode(500, "База не доступна " + e.Message);
         }
@@ -48,9 +41,9 @@ public class RoleController : Controller
     }
 
     [HttpGet("role/{id}")]
-    public IActionResult GetRole(int id)
+    public async Task<ActionResult<RoleDto>> GetRole(int id)
     {
-        var role = _context.Roles.Find(id);
+        var role = await context.Roles.FindAsync(id);
 
         if (role == null)
         {
@@ -59,21 +52,21 @@ public class RoleController : Controller
 
         return Ok(RoleMapper.ToDto(role));
     }
-
-    // GET
+    
     [HttpGet("view-all-roles")]
-    public IActionResult GetAllRoles()
+    public async Task<ActionResult<List<RoleDto>>> GetAllRoles()
     {
-        var roles = _context.Roles
+        var roles = await context.Roles
             .Select(RoleMapper.ToDto)
-            .ToList();
+            .AsQueryable()
+            .ToListAsync();
         return Ok(roles);
     }
 
     [HttpPut("update-role/{id}")]
     public IActionResult UpdateRole([FromRoute] int id, [FromBody] UpdateRoleDto roleDto)
     {
-        var existingRole = _context.Roles.Find(id);
+        var existingRole = context.Roles.Find(id);
 
         if (existingRole == null)
         {
@@ -87,7 +80,7 @@ public class RoleController : Controller
                 return BadRequest("Имя роли не может быть пустым!");
             }
 
-            var oldNameRole = _context.Roles.Any(r => r.Name == roleDto.Name && r.Id != id);
+            var oldNameRole = context.Roles.Any(r => r.Name == roleDto.Name && r.Id != id);
 
             if (oldNameRole)
             {
@@ -104,7 +97,7 @@ public class RoleController : Controller
 
         try
         {
-            _context.SaveChanges();
+            context.SaveChanges();
         }
         catch (Exception e)
         {
@@ -117,7 +110,7 @@ public class RoleController : Controller
     [HttpDelete("delete/{id}")]
     public IActionResult DeleteRole(int id)
     {
-        var role = _context.Roles.FirstOrDefault(r => r.Id == id);
+        var role = context.Roles.FirstOrDefault(r => r.Id == id);
 
         if (role == null)
         {
@@ -126,8 +119,8 @@ public class RoleController : Controller
 
         try
         {
-            _context.Roles.Remove(role);
-            _context.SaveChanges();
+            context.Roles.Remove(role);
+            context.SaveChanges();
             return NoContent();
         }
         catch (Exception e)
@@ -139,7 +132,7 @@ public class RoleController : Controller
     [HttpDelete("delete-all-role")]
     public IActionResult DeleteAllRoles()
     {
-        _databaseCleaner.ClearRoles();
+        databaseCleaner.ClearRoles();
         return Ok("Все роли были удалены!");
     }
 }

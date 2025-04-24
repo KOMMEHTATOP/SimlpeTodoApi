@@ -4,12 +4,8 @@ using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Data
 {
-    public class TodoContext : DbContext, ITodoContext
+    public class TodoContext(DbContextOptions<TodoContext> options) : DbContext(options), ITodoContext
     {
-        public TodoContext(DbContextOptions<TodoContext> options) : base(options)
-        {
-            
-        }
 
         public DbSet<ToDoItem> ToDoItems { get; set; }
         public DbSet<User> Users { get; set; }

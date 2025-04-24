@@ -5,7 +5,7 @@ namespace SimpleToDoApi.Mappers;
 
 public static class RoleMapper
 {
-    public static RoleDto ToDto(this Role role)
+    public static RoleDto ToDto(Role role)
     {
         return new RoleDto()
         {

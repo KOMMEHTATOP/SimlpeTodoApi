@@ -1,34 +1,24 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SimpleToDoApi.Data;
 using SimpleToDoApi.DTO.ToDoItem;
 using SimpleToDoApi.Mappers;
-using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class TodoItemsController : ControllerBase
+    public class TodoItemsController(ITodoContext context, DatabaseCleaner databaseCleaner) : ControllerBase
     {
-        private readonly ITodoContext _context;
-        private readonly DatabaseCleaner? _databaseCleaner;
-        public TodoItemsController(ITodoContext context, DatabaseCleaner? databaseCleaner = null)
-        {
-            _context = context;
-            _databaseCleaner = databaseCleaner;
-        }
-
         [HttpPost("create-new-task")]
-        public ActionResult PostTodoItem([FromBody] CreateToDoItemDto createTodoItemDto)
+        public async Task<ActionResult<ToDoItemDto>> PostTodoItem([FromBody] CreateToDoItemDto createTodoItemDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            if (_context.ToDoItems.Any(t => t.Title == createTodoItemDto.Title))
+            if (await context.ToDoItems.AnyAsync(t => t.Title == createTodoItemDto.Title))
             {
                 return BadRequest(
                     "Задача с таким заголовком уже существует. Скоректируйте/удалите существующую или создайте задачу с новым заголовком.");
@@ -38,8 +28,8 @@ namespace SimpleToDoApi.Controllers
 
             try
             {
-                _context.ToDoItems.Add(newToDoItem);
-                _context.SaveChanges();
+                context.ToDoItems.Add(newToDoItem);
+                await context.SaveChangesAsync();
             }
             catch (DbUpdateException e)
             {
@@ -55,19 +45,20 @@ namespace SimpleToDoApi.Controllers
 
         // GET: api/TodoItems
         [HttpGet("view-all-tasks")]
-        public ActionResult<List<ToDoItemDto>> GetTodoItems()
+        public async Task<ActionResult<List<ToDoItemDto>>> GetTodoItems()
         {
-            var tasks = _context.ToDoItems
+            var tasks = await context.ToDoItems
                 .Select(ToDoItemMapper.ToDto)
-                .ToList();
+                .AsQueryable()
+                .ToListAsync();
             return Ok(tasks);
         }
 
         // GET: api/TodoItems/1
         [HttpGet("view-task-ID-{id}")]
-        public ActionResult<ToDoItemDto> GetTodoItem(int id)
+        public async Task<ActionResult<ToDoItemDto>> GetTodoItem(int id)
         {
-            var todoItem = _context.ToDoItems.Find(id);
+            var todoItem = await context.ToDoItems.FindAsync(id);
 
             if (todoItem == null)
             {
@@ -76,24 +67,24 @@ namespace SimpleToDoApi.Controllers
 
             return Ok(ToDoItemMapper.ToDto(todoItem));
         }
-
-
+        
         // PUT: api/TodoItems/1
         [HttpPut("update-task-{id}")]
-        public ActionResult<ToDoItemDto> UpdateTodoItem([FromRoute] int id, [FromBody] UpdateToDoItemDto newToDoItemDto)
+        public async Task<ActionResult<ToDoItemDto>> UpdateTodoItem([FromRoute] int id,
+            [FromBody] UpdateToDoItemDto newToDoItemDto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            if (_context.ToDoItems.Any(t => t.Title == newToDoItemDto.Title && t.Id != id))
+            if (context.ToDoItems.Any(t => t.Title == newToDoItemDto.Title && t.Id != id))
             {
                 return BadRequest("Задача с таким заголовком уже существует.");
             }
-            
-            var existingTodoItem = _context.ToDoItems.Find(id);
-            
+
+            var existingTodoItem = await context.ToDoItems.FindAsync(id);
+
             if (existingTodoItem == null)
             {
                 return NotFound("Задача не найдена!");
@@ -105,9 +96,9 @@ namespace SimpleToDoApi.Controllers
 
             try
             {
-                _context.SaveChanges();
+                await context.SaveChangesAsync();
             }
-            catch (Exception ex)
+            catch (DbUpdateException ex)
             {
                 return StatusCode(500, "База не доступна " + ex.Message);
             }
@@ -117,33 +108,34 @@ namespace SimpleToDoApi.Controllers
 
         // DELETE: api/TodoItems/1
         [HttpDelete("delete-task-{id}")]
-        public IActionResult DeleteTodoItem(int id)
+        public async Task<ActionResult> DeleteTodoItem(int id)
         {
-            var todoItem = _context.ToDoItems.Find(id);
+            var todoItem = await context.ToDoItems.FindAsync(id);
 
             if (todoItem == null)
             {
                 return NotFound("Задача для удаления не найдена");
             }
 
+            context.ToDoItems.Remove(todoItem);
+
             try
             {
-                _context.ToDoItems.Remove(todoItem);
-                _context.SaveChanges();
+                await context.SaveChangesAsync();
                 return NoContent();
             }
-            catch (Exception)
+            catch (DbUpdateException e)
             {
-                return StatusCode(500, "Ошибка при удалении задач.");
+                return StatusCode(500, "Ошибка при удалении задач. " + e.Message);
             }
         }
 
         [HttpDelete("delete-all")]
-        public IActionResult DeleteAll()
+        public async Task<ActionResult> DeleteAll()
         {
             try
             {
-                _databaseCleaner.ClearTodoItems();
+                await databaseCleaner.ClearTodoItems();
                 return NoContent();
             }
             catch (Exception)

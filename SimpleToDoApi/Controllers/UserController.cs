@@ -8,62 +8,68 @@ namespace SimpleToDoApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UserController : ControllerBase
+    public class UserController(TodoContext context, DatabaseCleaner databaseCleaner) : ControllerBase
     {
-        private readonly TodoContext _context;
-        private readonly DatabaseCleaner _databaseCleaner;
-
-        public UserController(TodoContext context, DatabaseCleaner databaseCleaner)
-        {
-            _context = context;
-            _databaseCleaner = databaseCleaner;
-        }
-
         [HttpPost("add-new-user")]
-        public IActionResult AddUser([FromBody] CreateUserDto createUserDto)
+        public async Task<ActionResult<UserDto>> AddUser([FromBody] CreateUserDto createUserDto)
         {
+            // Проверяем корректность модели (валидировались все обязательные поля)
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            if (_context.Users.Any(u => u.UserName == createUserDto.UserName))
+            // Асинхронно проверяем, существует ли уже пользователь с таким именем (UserName)
+            // AnyAsync выполняет SQL-запрос SELECT EXISTS(SELECT 1 ...) к базе данных
+            if (await context.Users.AnyAsync(u => u.UserName == createUserDto.UserName))
             {
                 return BadRequest("User already exists.");
             }
 
-            // 1. Получаем роли из БД
-            var roles = _context.Roles
+            // Асинхронно получаем из базы данных все роли, id которых были переданы клиентом
+            // ToListAsync вернёт только те роли, которые реально есть в базе
+            var roles = await context.Roles
                 .Where(r => createUserDto.RoleIds.Contains(r.Id))
-                .ToList();
+                .ToListAsync();
 
-            // 2. Проверяем, все ли роли найдены
+            // Определяем, есть ли среди запрошенных id такие, которых нет в базе
+            // createUserDto.RoleIds - все id, которые прислал клиент
+            // roles.Select(r => r.Id) - id реально существующих ролей из базы
+            // Except вернёт те id, которых не найдено
             var notFoundRoleIds = createUserDto.RoleIds.Except(roles.Select(r => r.Id)).ToList();
 
+            // Если есть несуществующие id ролей — возвращаем ошибку с их перечислением
             if (notFoundRoleIds.Any())
             {
                 return BadRequest($"Не найдены роли с id: {string.Join(", ", notFoundRoleIds)}");
             }
 
+            // Здесь должен быть хэш пароля, но сейчас просто присваиваем как есть (НЕ БЕЗОПАСНО!)
             var passwordHash = createUserDto.Password;
 
-            // 4. Маппим DTO → User (без ролей и пароля)
+            // Маппим DTO → User (создаём новый объект User на основе входных данных, кроме ролей и пароля)
             var user = UserMapper.FromDto(createUserDto);
 
-            // 5. Заполняем недостающие данные
+            // Заполняем недостающие поля: пароль и роли
             user.PasswordHash = passwordHash;
             user.Roles = roles;
 
             try
             {
-                _context.Users.Add(user);
-                _context.SaveChanges();
+                // Добавляем нового пользователя в отслеживаемый список (ещё не в БД!)
+                context.Users.Add(user);
+
+                // Асинхронно сохраняем изменения в базе данных (INSERT в таблицу Users и связи с ролями)
+                await context.SaveChangesAsync();
             }
-            catch (Exception ex)
+            catch (DbUpdateException ex)
             {
+                // Если произошла ошибка при сохранении — возвращаем 500 и сообщение об ошибке
                 return StatusCode(500, "База не доступна " + ex.Message);
             }
 
+            // Возвращаем статус 201 Created и данные нового пользователя
+            // CreatedAtAction позволяет клиенту узнать URL для получения информации о созданном пользователе
             return CreatedAtAction(nameof(GetUser), new
             {
                 id = user.Id
@@ -71,21 +77,28 @@ namespace SimpleToDoApi.Controllers
         }
 
         [HttpGet("get-all-users")]
-        public IActionResult GetUsers()
+        public async Task<ActionResult<List<UserDto>>> GetUsers()
         {
-            var users = _context.Users
-                .Include(u => u.Roles)
+            // Асинхронно загружаем всех пользователей из базы данных, включая их роли (JOIN через Include)
+            var users = await context.Users
+                .Include(u => u.Roles) // Жадная загрузка ролей (navigation property)
+                .ToListAsync(); // Асинхронно получаем список пользователей
+
+            // Маппим пользователей из сущностей User в DTO (UserDto), чтобы не светить внутреннюю структуру БД наружу
+            var usersDto = users
+                .Select(UserMapper.ToDto)
                 .ToList();
-            var usersDto = users.Select(u => UserMapper.ToDto(u)).ToList();
+
+            // Возвращаем HTTP 200 OK и список пользователей-DTO
             return Ok(usersDto);
         }
 
         [HttpGet("get-user/{id}")]
-        public ActionResult GetUser(int id)
+        public async Task<ActionResult<UserDto>> GetUser(int id)
         {
-            var user = _context.Users
+            var user = await context.Users
                 .Include(u => u.Roles)
-                .FirstOrDefault(u => u.Id == id);
+                .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user == null)
             {
@@ -95,9 +108,8 @@ namespace SimpleToDoApi.Controllers
             return Ok(UserMapper.ToDto(user));
         }
 
-
         [HttpPut("update-user/{id}")]
-        public IActionResult PutUser([FromRoute] int id, UpdateUserDto updatedUserDto)
+        public async Task<ActionResult<UserDto>> PutUser([FromRoute] int id, [FromBody] UpdateUserDto updatedUserDto)
         {
             if (!ModelState.IsValid)
             {
@@ -105,24 +117,27 @@ namespace SimpleToDoApi.Controllers
             }
 
             //находим пользователя в бд и разворачиваем его роли (include)
-            var existingUser = _context.Users
+            var existingUser = await context.Users
                 .Include(u => u.Roles)
-                .FirstOrDefault(u => u.Id == id);
+                .FirstOrDefaultAsync(u => u.Id == id);
 
             if (existingUser == null)
             {
                 return NotFound("Пользователь не найден");
             }
 
-            if (_context.Users.Any(u => u.UserName == updatedUserDto.UserName && u.Id != id))
+            if (await context.Users.AnyAsync(u => u.UserName == updatedUserDto.UserName && u.Id != id))
             {
                 return BadRequest("Пользователь с таким именем уже существует.");
             }
 
             existingUser.UserName = updatedUserDto.UserName;
 
-            //получаем из базы роли по id из DTO
-            var roles = _context.Roles.Where(r => updatedUserDto.RoleIds.Contains(r.Id)).ToList();
+            //получаем из базы роли по id 
+            var roles = await context.Roles
+                .Where(r => updatedUserDto.RoleIds.Contains(r.Id))
+                .ToListAsync();
+
             //Проверяем все ли роли найдены
             var notFoundRoleIds = updatedUserDto.RoleIds.Except(roles.Select(r => r.Id)).ToList();
 
@@ -140,9 +155,9 @@ namespace SimpleToDoApi.Controllers
 
             try
             {
-                _context.SaveChanges();
+                await context.SaveChangesAsync();
             }
-            catch (Exception e)
+            catch (DbUpdateException e)
             {
                 return StatusCode(500, "База данных не доступна " + e.Message);
             }
@@ -151,26 +166,40 @@ namespace SimpleToDoApi.Controllers
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteUser(int id)
+        public async Task<ActionResult> DeleteUser(int id)
         {
-            var user = _context.Users.Find(id);
+            var user = await context.Users.FindAsync(id);
 
             if (user == null)
             {
                 return NotFound("Пользователь не найден");
             }
 
-            _context.Users.Remove(user);
-            _context.SaveChanges();
-            return NoContent();
-        }
+            context.Users.Remove(user);
 
-        // Удалить всех пользователей
+            try
+            {
+                await context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (DbUpdateException e)
+            {
+                return StatusCode(500, "Ошибка при удалении задачи" + e.Message);
+            }
+        }
+        
         [HttpDelete("delete-all-users")]
-        public IActionResult DeleteAllUsers()
+        public async Task<ActionResult> DeleteAllUsers()
         {
-            _databaseCleaner.ClearUsers();
-            return Ok("Все пользователи были удалены.");
+            try
+            {
+                await databaseCleaner.ClearUsers();
+                return NoContent();
+            }
+            catch (DbUpdateException e)
+            {
+                return StatusCode(500, "Ошибка удаленния данных из БД" + e.Message);
+            }
         }
     }
 }
