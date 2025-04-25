@@ -43,10 +43,8 @@ namespace SimpleToDoApi.Controllers
         [HttpGet("view-all-tasks")]
         public async Task<ActionResult<List<ToDoItemDto>>> GetTodoItems()
         {
-            var tasks = await context.ToDoItems
-                .Select(ToDoItemMapper.ToDto)
-                .AsQueryable()
-                .ToListAsync();
+            var items = await context.ToDoItems.ToListAsync();
+            var tasks = items.Select(ToDoItemMapper.ToDto).ToList();
             return Ok(tasks);
         }
 

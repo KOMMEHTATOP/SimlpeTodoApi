@@ -4,5 +4,5 @@ public interface IDatabaseCleaner
 {
     Task ClearTodoItems();
     Task ClearUsers();
-    Task ClearRole();
+    Task ClearRoles();
 }

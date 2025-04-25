@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SimpleToDoApi.Data;
 using System.Text;
+using Serilog;
 
 namespace SimpleToDoApi
 {
@@ -11,7 +12,20 @@ namespace SimpleToDoApi
     {
         public static void Main(string[] args)
         {
+            // Настройка Serilog: логировать начиная с Information, писать в файл с ротацией по дням
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Information()
+                .WriteTo.File(
+                    path: "logs/app.log",           // Путь к файлу с логами
+                    rollingInterval: RollingInterval.Day, // Новый файл на каждый день
+                    retainedFileCountLimit: 7,           // Храним логи за 7 дней
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+                )
+                .CreateLogger();
+            
             var builder = WebApplication.CreateBuilder(args);
+            
+            builder.Host.UseSerilog(); // Использовать Serilog вместо стандартного логгера
 
             // Регистрация TodoContext
             builder.Services.AddDbContext<TodoContext>(options => options.UseSqlServer("Server=localhost;Database=TodoDb;Trusted_Connection=True;Encrypt=False"));
@@ -86,7 +100,7 @@ namespace SimpleToDoApi
                     }
                 });
             });
-            builder.Services.AddScoped<DatabaseCleaner>();
+            builder.Services.AddScoped<IDatabaseCleaner, DatabaseCleaner>();
             builder.Services.AddScoped<ITodoContext, TodoContext>();
 
             var app = builder.Build();

@@ -3,7 +3,7 @@ using SimpleToDoApi.Data;
 
 namespace SimpleToDoApi
 {
-    public class DatabaseCleaner
+    public class DatabaseCleaner: IDatabaseCleaner
     {
         private readonly TodoContext _context;
         public DatabaseCleaner(TodoContext context)
