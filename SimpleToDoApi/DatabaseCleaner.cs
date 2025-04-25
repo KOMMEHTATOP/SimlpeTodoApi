@@ -6,7 +6,7 @@ namespace SimpleToDoApi
     public class DatabaseCleaner
     {
         private readonly TodoContext _context;
-        private DatabaseCleaner(TodoContext context)
+        public DatabaseCleaner(TodoContext context)
         {
             _context = context;
         }

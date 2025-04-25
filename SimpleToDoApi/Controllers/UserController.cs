@@ -13,12 +13,6 @@ namespace SimpleToDoApi.Controllers
         [HttpPost("add-new-user")]
         public async Task<ActionResult<UserDto>> AddUser([FromBody] CreateUserDto createUserDto)
         {
-            // Проверяем корректность модели (валидировались все обязательные поля)
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             // Асинхронно проверяем, существует ли уже пользователь с таким именем (UserName)
             // AnyAsync выполняет SQL-запрос SELECT EXISTS(SELECT 1 ...) к базе данных
             if (await context.Users.AnyAsync(u => u.UserName == createUserDto.UserName))
@@ -111,11 +105,6 @@ namespace SimpleToDoApi.Controllers
         [HttpPut("update-user/{id}")]
         public async Task<ActionResult<UserDto>> PutUser([FromRoute] int id, [FromBody] UpdateUserDto updatedUserDto)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             //находим пользователя в бд и разворачиваем его роли (include)
             var existingUser = await context.Users
                 .Include(u => u.Roles)

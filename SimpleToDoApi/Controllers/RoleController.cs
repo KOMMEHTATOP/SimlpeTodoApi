@@ -6,16 +6,12 @@ using SimpleToDoApi.Mappers;
 
 namespace SimpleToDoApi.Controllers;
 
+[ApiController]
 public class RoleController(ITodoContext context, DatabaseCleaner databaseCleaner) : Controller
 {
     [HttpPost("create-newrole")]
     public async Task<ActionResult<RoleDto>> CreateNewRole([FromBody] CreateRoleDto roleDto)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
         if (await context.Roles.AnyAsync(r => r.Name == roleDto.Name))
         {
             return BadRequest("Роль уже существует");
@@ -52,7 +48,7 @@ public class RoleController(ITodoContext context, DatabaseCleaner databaseCleane
 
         return Ok(RoleMapper.ToDto(role));
     }
-    
+
     [HttpGet("view-all-roles")]
     public async Task<ActionResult<List<RoleDto>>> GetAllRoles()
     {
@@ -64,9 +60,9 @@ public class RoleController(ITodoContext context, DatabaseCleaner databaseCleane
     }
 
     [HttpPut("update-role/{id}")]
-    public IActionResult UpdateRole([FromRoute] int id, [FromBody] UpdateRoleDto roleDto)
+    public async Task<ActionResult<RoleDto>> UpdateRole([FromRoute] int id, [FromBody] UpdateRoleDto roleDto)
     {
-        var existingRole = context.Roles.Find(id);
+        var existingRole = await context.Roles.FindAsync(id);
 
         if (existingRole == null)
         {
@@ -75,31 +71,22 @@ public class RoleController(ITodoContext context, DatabaseCleaner databaseCleane
 
         if (existingRole.Name != roleDto.Name)
         {
-            if (string.IsNullOrEmpty(roleDto.Name))
-            {
-                return BadRequest("Имя роли не может быть пустым!");
-            }
-
-            var oldNameRole = context.Roles.Any(r => r.Name == roleDto.Name && r.Id != id);
+            var oldNameRole = await context.Roles.AnyAsync(r => r.Name == roleDto.Name && r.Id != id);
 
             if (oldNameRole)
             {
                 return BadRequest("Роль с таким именем уже существует!");
             }
-
-            existingRole.Name = roleDto.Name;
         }
 
-        if (existingRole.Description != roleDto.Description)
-        {
-            existingRole.Description = roleDto.Description;
-        }
+        existingRole.Name = roleDto.Name;
+        existingRole.Description = roleDto.Description;
 
         try
         {
-            context.SaveChanges();
+            await context.SaveChangesAsync();
         }
-        catch (Exception e)
+        catch (DbUpdateException e)
         {
             return StatusCode(500, "Ошибка при сохранении данных в базе" + e.Message);
         }
@@ -108,19 +95,20 @@ public class RoleController(ITodoContext context, DatabaseCleaner databaseCleane
     }
 
     [HttpDelete("delete/{id}")]
-    public IActionResult DeleteRole(int id)
+    public async Task<ActionResult> DeleteRole(int id)
     {
-        var role = context.Roles.FirstOrDefault(r => r.Id == id);
+        var role = await context.Roles.FirstOrDefaultAsync(r => r.Id == id);
 
         if (role == null)
         {
             return NotFound("Роль для удаления не найдена.");
         }
 
+        context.Roles.Remove(role);
+
         try
         {
-            context.Roles.Remove(role);
-            context.SaveChanges();
+            await context.SaveChangesAsync();
             return NoContent();
         }
         catch (Exception e)
@@ -130,9 +118,17 @@ public class RoleController(ITodoContext context, DatabaseCleaner databaseCleane
     }
 
     [HttpDelete("delete-all-role")]
-    public IActionResult DeleteAllRoles()
+    public async Task<ActionResult> DeleteAllRoles()
     {
-        databaseCleaner.ClearRoles();
-        return Ok("Все роли были удалены!");
+        try
+        {
+            await databaseCleaner.ClearRoles();
+            return Ok("Все роли были удалены!");
+
+        }
+        catch (DbUpdateException e)
+        {
+            return StatusCode(500, "База данных не доступна: " + e.Message);
+        }
     }
 }

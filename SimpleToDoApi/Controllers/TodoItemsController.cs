@@ -8,16 +8,11 @@ namespace SimpleToDoApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class TodoItemsController(ITodoContext context, DatabaseCleaner databaseCleaner) : ControllerBase
+    public class TodoItemsController(ITodoContext context, IDatabaseCleaner databaseCleaner) : ControllerBase
     {
         [HttpPost("create-new-task")]
         public async Task<ActionResult<ToDoItemDto>> PostTodoItem([FromBody] CreateToDoItemDto createTodoItemDto)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             if (await context.ToDoItems.AnyAsync(t => t.Title == createTodoItemDto.Title))
             {
                 return BadRequest(
@@ -26,9 +21,10 @@ namespace SimpleToDoApi.Controllers
 
             var newToDoItem = ToDoItemMapper.FromDto(createTodoItemDto);
 
+            context.ToDoItems.Add(newToDoItem);
+
             try
             {
-                context.ToDoItems.Add(newToDoItem);
                 await context.SaveChangesAsync();
             }
             catch (DbUpdateException e)
@@ -67,17 +63,12 @@ namespace SimpleToDoApi.Controllers
 
             return Ok(ToDoItemMapper.ToDto(todoItem));
         }
-        
+
         // PUT: api/TodoItems/1
         [HttpPut("update-task-{id}")]
         public async Task<ActionResult<ToDoItemDto>> UpdateTodoItem([FromRoute] int id,
             [FromBody] UpdateToDoItemDto newToDoItemDto)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             if (context.ToDoItems.Any(t => t.Title == newToDoItemDto.Title && t.Id != id))
             {
                 return BadRequest("Задача с таким заголовком уже существует.");
