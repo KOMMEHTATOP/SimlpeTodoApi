@@ -26,15 +26,56 @@ namespace SimpleToDoApi.Controllers
             context.ToDoItems.Add(newToDoItem);
             await context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetTodoItemById), new { id = newToDoItem.Id }, ToDoItemMapper.ToDto(newToDoItem));
+            return CreatedAtAction(nameof(GetTodoItemById), new
+            {
+                id = newToDoItem.Id
+            }, ToDoItemMapper.ToDto(newToDoItem));
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<ToDoItemDto>>> GetAllTodoItems()
+        public async Task<ActionResult<List<ToDoItemDto>>> GetAllTodoItems(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] bool? isComplete = null,
+            [FromQuery] string search = null,
+            [FromQuery] int userId = 0
+        )
         {
-            var items = await context.ToDoItems.ToListAsync();
-            var tasks = items.Select(ToDoItemMapper.ToDto).ToList();
-            return Ok(tasks);
+            var query = context.ToDoItems.AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+                query = query.Where(t => t.Title.Contains(search) || t.Description.Contains(search));
+
+            if (isComplete.HasValue)
+            {
+                query = query.Where(t => t.IsComplete == isComplete.Value);
+            }
+
+            if (userId > 0)
+            {
+                var userExists = await context.Users.AnyAsync(u => u.Id == userId);
+
+                if (!userExists)
+                {
+                    return BadRequest("User does not exist.");
+                }
+                query = query.Where(i=>i.CreatedByUserId == userId);
+            }
+            
+            
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var dtos = items.Select(ToDoItemMapper.ToDto).ToList();
+
+            return Ok(new
+            {
+                totalCount, page, pageSize, data = dtos
+            });
         }
 
         [HttpGet("{id}")]
@@ -51,7 +92,8 @@ namespace SimpleToDoApi.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult<ToDoItemDto>> UpdateTodoItem([FromRoute] int id, [FromBody] UpdateToDoItemDto newToDoItemDto)
+        public async Task<ActionResult<ToDoItemDto>> UpdateTodoItem([FromRoute] int id,
+            [FromBody] UpdateToDoItemDto newToDoItemDto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
