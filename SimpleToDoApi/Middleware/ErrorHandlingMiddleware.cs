@@ -23,31 +23,44 @@ public class ErrorHandlingMiddleware
         }
         catch (DbUpdateException dbEx)
         {
-            _logger.LogError(dbEx, "Ошибка обновления данных в БД");
-            await HandleExceptionAsync(context, dbEx, HttpStatusCode.BadRequest, "Ошибка обновления данных в базе.");
+            _logger.LogError(dbEx, "Database update error during request {Path}", context.Request.Path);
+            await WriteProblemDetailsAsync(context, dbEx, HttpStatusCode.BadRequest, "Database update error.");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Необработанная ошибка");
-            await HandleExceptionAsync(context, ex, HttpStatusCode.InternalServerError, "Внутренняя ошибка сервера");
+            _logger.LogError(ex, "Unhandled exception processing request {Path}", context.Request.Path);
+            await WriteProblemDetailsAsync(context, ex, HttpStatusCode.InternalServerError, "Internal server error");
         }
     }
 
-    private async Task HandleExceptionAsync(HttpContext context, Exception exception, HttpStatusCode code, string message)
+    private async Task WriteProblemDetailsAsync(
+        HttpContext context,
+        Exception exception,
+        HttpStatusCode code,
+        string title)
     {
         context.Response.StatusCode = (int)code;
-        context.Response.ContentType = "application/json";
+        context.Response.ContentType = "application/problem+json";
 
-        var errorResponse = new
+        var problemDetails = new
         {
-            status = context.Response.StatusCode,
-            message = message,
-#if DEBUG //директива компилятора. Запускается только в режиме отладки.
-            detail = exception.Message
+            type = code == HttpStatusCode.InternalServerError
+                ? "https://tools.ietf.org/html/rfc7231#section-6.6.1"
+                : "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+            title = title,
+            status = (int)code,
+            detail =
+#if DEBUG
+                exception.Message,
+#else
+                code == HttpStatusCode.InternalServerError
+                    ? "An unexpected error occurred. Please contact the administrator."
+                    : exception.Message,
 #endif
+            instance = context.Request.Path
         };
 
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-        await context.Response.WriteAsync(JsonSerializer.Serialize(errorResponse, options));
+        await context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails, options));
     }
 }

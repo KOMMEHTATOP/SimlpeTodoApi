@@ -6,50 +6,40 @@ using SimpleToDoApi.Mappers;
 
 namespace SimpleToDoApi.Controllers;
 
+[Route("api/roles")]
 [ApiController]
-public class RoleController(ITodoContext context, IDatabaseCleaner databaseCleaner) : Controller
+public class RoleController(ITodoContext context, IDatabaseCleaner databaseCleaner) : ControllerBase
 {
-    [HttpPost("create-newrole")]
-    public async Task<ActionResult<RoleDto>> CreateNewRole([FromBody] CreateRoleDto roleDto)
+    [HttpPost]
+    public async Task<ActionResult<RoleDto>> CreateRole([FromBody] CreateRoleDto roleDto)
     {
         if (await context.Roles.AnyAsync(r => r.Name == roleDto.Name))
         {
-            return BadRequest("Роль уже существует");
+            return BadRequest("A role with this name already exists.");
         }
 
         var newRole = RoleMapper.FromDto(roleDto);
 
         context.Roles.Add(newRole);
+        await context.SaveChangesAsync();
 
-        try
-        {
-            await context.SaveChangesAsync();
-        }
-        catch (DbUpdateException e)
-        {
-            return StatusCode(500, "База не доступна " + e.Message);
-        }
-
-        return CreatedAtAction(nameof(GetRole), new
-        {
-            id = newRole.Id
-        }, RoleMapper.ToDto(newRole));
+        return CreatedAtAction(nameof(GetRoleById), new { id = newRole.Id }, RoleMapper.ToDto(newRole));
     }
 
-    [HttpGet("role/{id}")]
-    public async Task<ActionResult<RoleDto>> GetRole(int id)
+    [HttpGet("{id}")]
+    public async Task<ActionResult<RoleDto>> GetRoleById(int id)
     {
         var role = await context.Roles.FindAsync(id);
 
         if (role == null)
         {
-            return NotFound("Роль базе данных не найдена");
+            return NotFound("Role not found.");
         }
 
         return Ok(RoleMapper.ToDto(role));
     }
 
-    [HttpGet("view-all-roles")]
+    [HttpGet]
     public async Task<ActionResult<List<RoleDto>>> GetAllRoles()
     {
         var rolesList = await context.Roles.ToListAsync();
@@ -57,76 +47,53 @@ public class RoleController(ITodoContext context, IDatabaseCleaner databaseClean
         return Ok(roles);
     }
 
-    [HttpPut("update-role/{id}")]
+    [HttpPut("{id}")]
     public async Task<ActionResult<RoleDto>> UpdateRole([FromRoute] int id, [FromBody] UpdateRoleDto roleDto)
     {
         var existingRole = await context.Roles.FindAsync(id);
 
         if (existingRole == null)
         {
-            return NotFound("Роль не найдена!");
+            return NotFound("Role not found.");
         }
 
         if (existingRole.Name != roleDto.Name)
         {
-            var oldNameRole = await context.Roles.AnyAsync(r => r.Name == roleDto.Name && r.Id != id);
+            var nameConflict = await context.Roles.AnyAsync(r => r.Name == roleDto.Name && r.Id != id);
 
-            if (oldNameRole)
+            if (nameConflict)
             {
-                return BadRequest("Роль с таким именем уже существует!");
+                return BadRequest("A role with this name already exists.");
             }
         }
 
         existingRole.Name = roleDto.Name;
         existingRole.Description = roleDto.Description;
 
-        try
-        {
-            await context.SaveChangesAsync();
-        }
-        catch (DbUpdateException e)
-        {
-            return StatusCode(500, "Ошибка при сохранении данных в базе" + e.Message);
-        }
+        await context.SaveChangesAsync();
 
         return Ok(RoleMapper.ToDto(existingRole));
     }
 
-    [HttpDelete("delete/{id}")]
+    [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteRole(int id)
     {
         var role = await context.Roles.FirstOrDefaultAsync(r => r.Id == id);
 
         if (role == null)
         {
-            return NotFound("Роль для удаления не найдена.");
+            return NotFound("Role not found.");
         }
 
         context.Roles.Remove(role);
-
-        try
-        {
-            await context.SaveChangesAsync();
-            return NoContent();
-        }
-        catch (Exception e)
-        {
-            return StatusCode(500, "Ошибка при обращении в базе данных" + e.Message);
-        }
+        await context.SaveChangesAsync();
+        return NoContent();
     }
 
-    [HttpDelete("delete-all-role")]
+    [HttpDelete]
     public async Task<ActionResult> DeleteAllRoles()
     {
-        try
-        {
-            await databaseCleaner.ClearRoles();
-            return Ok("Все роли были удалены!");
-
-        }
-        catch (DbUpdateException ex)
-        {
-            return StatusCode(500, "База данных не доступна: " + ex.Message);
-        }
+        await databaseCleaner.ClearRoles();
+        return NoContent();
     }
 }
