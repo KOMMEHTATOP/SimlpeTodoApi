@@ -5,6 +5,7 @@ using Microsoft.OpenApi.Models;
 using SimpleToDoApi.Data;
 using System.Text;
 using Serilog;
+using SimpleToDoApi.Middleware;
 
 namespace SimpleToDoApi
 {
@@ -110,11 +111,11 @@ namespace SimpleToDoApi
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
-
+            
             app.UseHttpsRedirection();
+            app.UseMiddleware<ErrorHandlingMiddleware>();
             app.UseAuthentication();  
             app.UseAuthorization();
-
             app.MapControllers();
 
             app.Run();

@@ -13,6 +13,9 @@ namespace SimpleToDoApi.Controllers
         [HttpPost("create-new-task")]
         public async Task<ActionResult<ToDoItemDto>> PostTodoItem([FromBody] CreateToDoItemDto createTodoItemDto)
         {
+            //этот метод по факту нужен для тестов. Так как тут в классе есть аттрибрут ApiController, ASP сам все проеверяет. Но прогоны тестов этого не умеют делать, поэтому эта проверка тут.  
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
             if (await context.ToDoItems.AnyAsync(t => t.Title == createTodoItemDto.Title))
             {
                 return BadRequest(
@@ -67,6 +70,9 @@ namespace SimpleToDoApi.Controllers
         public async Task<ActionResult<ToDoItemDto>> UpdateTodoItem([FromRoute] int id,
             [FromBody] UpdateToDoItemDto newToDoItemDto)
         {
+            //тоже самое, метод для тестов.
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            
             if (context.ToDoItems.Any(t => t.Title == newToDoItemDto.Title && t.Id != id))
             {
                 return BadRequest("Задача с таким заголовком уже существует.");
@@ -82,6 +88,7 @@ namespace SimpleToDoApi.Controllers
             existingTodoItem.Title = newToDoItemDto.Title;
             existingTodoItem.Description = newToDoItemDto.Description;
             existingTodoItem.IsComplete = newToDoItemDto.IsComplete;
+            existingTodoItem.Updated = DateTime.UtcNow;
 
             try
             {

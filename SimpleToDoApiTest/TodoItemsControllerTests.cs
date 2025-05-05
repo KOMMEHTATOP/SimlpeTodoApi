@@ -5,6 +5,7 @@ using SimpleToDoApi.Controllers;
 using SimpleToDoApi.Data;
 using SimpleToDoApi.Models;
 using MockQueryable.Moq;
+using Moq.EntityFrameworkCore;
 using SimpleToDoApi;
 using SimpleToDoApi.DTO.ToDoItem;
 using System.Linq.Expressions;
@@ -115,7 +116,7 @@ namespace SimpleToDoApiTest
             var result = await controller.PostTodoItem(validToDoItemDto);
 
             // Assert
-            var createdAtResult = Assert.IsType<CreatedAtActionResult>(result);
+            var createdAtResult = Assert.IsType<CreatedAtActionResult>(result.Result);
             Assert.Equal(201, createdAtResult.StatusCode);
 
             var returnedTask = Assert.IsType<ToDoItemDto>(createdAtResult.Value);
@@ -129,33 +130,41 @@ namespace SimpleToDoApiTest
                 t.IsComplete == validToDoItemDto.IsComplete)), Times.Once());
             mockContext.Verify(m => m.SaveChangesAsync(default), Times.Once());
         }
-
-
+        
         [Fact]
         public async Task PostTodoItem_ReturnsBadRequest_WhenModelIsInvalid()
         {
             // Arrange
             var mockContext = new Mock<ITodoContext>();
             var mockCleaner = new Mock<IDatabaseCleaner>();
+
+            // Мокаем DbSet без данных — AnyAsync всегда вернет false
+            mockContext.Setup(c => c.ToDoItems).ReturnsDbSet(new List<ToDoItem>());
+
             var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
 
-            var invalidItem = new CreateToDoItemDto
+            // Создаём невалидный DTO (пустой Title)
+            var inValidItem = new CreateToDoItemDto
             {
-                Title = "", IsComplete = false
+                Title = "",
+                IsComplete = false
             };
+
+            // Явно добавляем ошибку валидации
             controller.ModelState.AddModelError("Title", "Title is required.");
 
             // Act
-            var result = await controller.PostTodoItem(invalidItem);
+            var result = await controller.PostTodoItem(inValidItem);
 
             // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
             Assert.Equal(400, badRequestResult.StatusCode);
 
             var errors = Assert.IsType<SerializableError>(badRequestResult.Value);
             Assert.True(errors.ContainsKey("Title"));
         }
-
+    
+    
         //-------------------------UpdateTodoItem (PUT /update-task-{id})--------------------------
         [Fact]
         public async Task UpdateTodoItem_UpdatesItem_WhenModelIsValid()
@@ -282,7 +291,7 @@ namespace SimpleToDoApiTest
             var result = await controller.PostTodoItem(newItem);
 
             // Assert
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
             Assert.Equal(400, badRequestResult.StatusCode);
             Assert.Contains("существует", badRequestResult.Value.ToString());
         }
@@ -354,9 +363,13 @@ namespace SimpleToDoApiTest
         {
             // Arrange
             var mockContext = new Mock<ITodoContext>();
+            mockContext.Setup(c=>c.ToDoItems).ReturnsDbSet(new List<ToDoItem>
+            {
+                new ToDoItem {Id = 1, Title = "TestTask", Description = "Desc1", IsComplete = false}
+            });
             var mockCleaner = new Mock<IDatabaseCleaner>();
             var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
-
+            
             var invalidDto = new UpdateToDoItemDto { Title = "", Description = "Desc", IsComplete = false };
             controller.ModelState.AddModelError("Title", "Title is required.");
 

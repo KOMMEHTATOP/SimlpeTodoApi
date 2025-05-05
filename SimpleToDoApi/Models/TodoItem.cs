@@ -9,7 +9,7 @@ namespace SimpleToDoApi.Models
         [MinLength(3, ErrorMessage = "Title must be at least 3 characters long.")] 
         public string Title { get; set; }
         public string Description { get; set; }
-        public DateTime Created { get; private set; } = DateTime.UnixEpoch;
+        public DateTime Created { get; private set; } = DateTime.UtcNow;
         public DateTime Updated {get; set;}
         
         //Связь между User и ToDoItem
