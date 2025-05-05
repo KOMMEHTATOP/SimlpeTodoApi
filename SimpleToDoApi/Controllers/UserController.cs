@@ -8,7 +8,7 @@ namespace SimpleToDoApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UserController(TodoContext context, DatabaseCleaner databaseCleaner) : ControllerBase
+    public class UserController(ITodoContext context, IDatabaseCleaner databaseCleaner) : ControllerBase
     {
         [HttpPost("add-new-user")]
         public async Task<ActionResult<UserDto>> AddUser([FromBody] CreateUserDto createUserDto)
@@ -38,6 +38,15 @@ namespace SimpleToDoApi.Controllers
                 return BadRequest($"Не найдены роли с id: {string.Join(", ", notFoundRoleIds)}");
             }
 
+            var email = await context.Users
+                .Where(c => c.Email == createUserDto.Email)
+                .ToListAsync();
+
+            if (email.Any())
+            {
+                return BadRequest("Email already exists.");
+            }
+            
             // Здесь должен быть хэш пароля, но сейчас просто присваиваем как есть (НЕ БЕЗОПАСНО!)
             var passwordHash = createUserDto.Password;
 
@@ -139,7 +148,17 @@ namespace SimpleToDoApi.Controllers
             {
                 return BadRequest("Пользователь должен иметь хотя бы одну роль.");
             }
+            
+            var email = await context.Users
+                .Where(c => c.Email == updatedUserDto.Email)
+                .ToListAsync();
 
+            if (email.Any())
+            {
+                return BadRequest("Email already exists.");
+            }
+            
+            existingUser.Email = updatedUserDto.Email;
             existingUser.Roles = roles;
 
             try
@@ -187,7 +206,7 @@ namespace SimpleToDoApi.Controllers
             }
             catch (DbUpdateException e)
             {
-                return StatusCode(500, "Ошибка удаленния данных из БД" + e.Message);
+                return StatusCode(500, "Ошибка удаления данных из БД" + e.Message);
             }
         }
     }

@@ -7,7 +7,7 @@ using SimpleToDoApi.Mappers;
 namespace SimpleToDoApi.Controllers;
 
 [ApiController]
-public class RoleController(ITodoContext context, DatabaseCleaner databaseCleaner) : Controller
+public class RoleController(ITodoContext context, IDatabaseCleaner databaseCleaner) : Controller
 {
     [HttpPost("create-newrole")]
     public async Task<ActionResult<RoleDto>> CreateNewRole([FromBody] CreateRoleDto roleDto)
@@ -52,10 +52,8 @@ public class RoleController(ITodoContext context, DatabaseCleaner databaseCleane
     [HttpGet("view-all-roles")]
     public async Task<ActionResult<List<RoleDto>>> GetAllRoles()
     {
-        var roles = await context.Roles
-            .Select(RoleMapper.ToDto)
-            .AsQueryable()
-            .ToListAsync();
+        var rolesList = await context.Roles.ToListAsync();
+        var roles = rolesList.Select(RoleMapper.ToDto).ToList();
         return Ok(roles);
     }
 
@@ -126,9 +124,9 @@ public class RoleController(ITodoContext context, DatabaseCleaner databaseCleane
             return Ok("Все роли были удалены!");
 
         }
-        catch (DbUpdateException e)
+        catch (DbUpdateException ex)
         {
-            return StatusCode(500, "База данных не доступна: " + e.Message);
+            return StatusCode(500, "База данных не доступна: " + ex.Message);
         }
     }
 }

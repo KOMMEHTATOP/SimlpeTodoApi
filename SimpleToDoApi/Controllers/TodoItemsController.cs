@@ -16,7 +16,7 @@ namespace SimpleToDoApi.Controllers
             if (await context.ToDoItems.AnyAsync(t => t.Title == createTodoItemDto.Title))
             {
                 return BadRequest(
-                    "Задача с таким заголовком уже существует. Скоректируйте/удалите существующую или создайте задачу с новым заголовком.");
+                    "Задача с таким заголовком уже существует");
             }
 
             var newToDoItem = ToDoItemMapper.FromDto(createTodoItemDto);
@@ -113,23 +113,23 @@ namespace SimpleToDoApi.Controllers
                 await context.SaveChangesAsync();
                 return NoContent();
             }
-            catch (DbUpdateException e)
+            catch (DbUpdateException ex)
             {
-                return StatusCode(500, "Ошибка при удалении задач. " + e.Message);
+                return StatusCode(500, "Ошибка при удалении задач. " + ex.Message);
             }
         }
 
         [HttpDelete("delete-all")]
-        public async Task<ActionResult> DeleteAll()
+        public async Task<ActionResult> DeleteAllToDoItems()
         {
             try
             {
                 await databaseCleaner.ClearTodoItems();
-                return NoContent();
+                return Ok("Все задачи были удалены!");
             }
-            catch (Exception)
+            catch (DbUpdateException ex)
             {
-                return StatusCode(500, "Ошибка при удалении задач.");
+                return StatusCode(500, "Ошибка при удалении задач. " + ex.Message);
             }
         }
     }
