@@ -11,7 +11,7 @@ using System.Linq.Expressions;
 
 namespace SimpleToDoApiTest
 {
-    public class TodoItemsControllerTests
+    public class ToDoItemsControllerTests
     {
         [Fact]
         public async Task GetTodoItems_ReturnsAllItems_WhenDatabaseHasItems()
@@ -27,7 +27,7 @@ namespace SimpleToDoApiTest
             var mockContext = new Mock<ITodoContext>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
             var mockCleaner = new Mock<IDatabaseCleaner>();
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
 
             var result = await controller.GetAllTodoItems();
 
@@ -49,7 +49,7 @@ namespace SimpleToDoApiTest
             var mockContext = new Mock<ITodoContext>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
             var mockCleaner = new Mock<IDatabaseCleaner>();
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
 
             var result = await controller.GetTodoItemById(1);
 
@@ -71,7 +71,7 @@ namespace SimpleToDoApiTest
             var mockContext = new Mock<ITodoContext>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
             var mockCleaner = new Mock<IDatabaseCleaner>();
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
 
             var result = await controller.GetTodoItemById(1);
 
@@ -96,7 +96,7 @@ namespace SimpleToDoApiTest
             var mockCleaner = new Mock<IDatabaseCleaner>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
             mockContext.Setup(c => c.SaveChangesAsync(default)).ReturnsAsync(1);
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
 
             var result = await controller.CreateTodoItem(validToDoItemDto);
 
@@ -123,7 +123,7 @@ namespace SimpleToDoApiTest
 
             mockContext.Setup(c => c.ToDoItems).ReturnsDbSet(new List<ToDoItem>());
 
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
 
             var inValidItem = new CreateToDoItemDto
             {
@@ -165,7 +165,7 @@ namespace SimpleToDoApiTest
             var mockCleaner = new Mock<IDatabaseCleaner>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
             mockContext.Setup(c => c.SaveChangesAsync(default)).ReturnsAsync(1);
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
 
             var result = await controller.UpdateTodoItem(1, updatedItemDto);
 
@@ -197,7 +197,7 @@ namespace SimpleToDoApiTest
             var mockCleaner = new Mock<IDatabaseCleaner>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
             mockContext.Setup(c => c.SaveChangesAsync(default)).ReturnsAsync(1);
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
 
             var result = await controller.DeleteTodoItem(1);
 
@@ -220,7 +220,7 @@ namespace SimpleToDoApiTest
             var mockContext = new Mock<ITodoContext>();
             var mockCleaner = new Mock<IDatabaseCleaner>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
 
             var result = await controller.UpdateTodoItem(1, updatedItemDto);
 
@@ -243,7 +243,7 @@ namespace SimpleToDoApiTest
             var mockContext = new Mock<ITodoContext>();
             var mockCleaner = new Mock<IDatabaseCleaner>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
 
             var newItem = new CreateToDoItemDto
             {
@@ -278,7 +278,7 @@ namespace SimpleToDoApiTest
             var mockContext = new Mock<ITodoContext>();
             var mockCleaner = new Mock<IDatabaseCleaner>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
 
             var updateDto = new UpdateToDoItemDto
             {
@@ -302,7 +302,7 @@ namespace SimpleToDoApiTest
             var mockContext = new Mock<ITodoContext>();
             var mockCleaner = new Mock<IDatabaseCleaner>();
             mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
 
             var result = await controller.DeleteTodoItem(5);
 
@@ -319,7 +319,7 @@ namespace SimpleToDoApiTest
                 new ToDoItem {Id = 1, Title = "TestTask", Description = "Desc1", IsComplete = false}
             });
             var mockCleaner = new Mock<IDatabaseCleaner>();
-            var controller = new TodoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
             
             var invalidDto = new UpdateToDoItemDto { Title = "", Description = "Desc", IsComplete = false };
             controller.ModelState.AddModelError("Title", "Title is required.");

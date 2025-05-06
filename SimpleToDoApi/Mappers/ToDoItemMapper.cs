@@ -7,7 +7,7 @@ public static class ToDoItemMapper
 {
     public static ToDoItemDto ToDto(ToDoItem model)
     {
-        return new ToDoItemDto { Title = model.Title, Description = model.Description, IsComplete = model.IsComplete };
+        return new ToDoItemDto { Id = model.Id, Title = model.Title, Description = model.Description, IsComplete = model.IsComplete };
     }
 
     public static ToDoItem FromDto(CreateToDoItemDto dto)

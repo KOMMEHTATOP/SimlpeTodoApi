@@ -5,7 +5,9 @@ using Microsoft.OpenApi.Models;
 using SimpleToDoApi.Data;
 using System.Text;
 using Serilog;
+using SimpleToDoApi.Interfaces;
 using SimpleToDoApi.Middleware;
+using SimpleToDoApi.Services;
 
 namespace SimpleToDoApi
 {
@@ -103,6 +105,7 @@ namespace SimpleToDoApi
             });
             builder.Services.AddScoped<IDatabaseCleaner, DatabaseCleaner>();
             builder.Services.AddScoped<ITodoContext, TodoContext>();
+            builder.Services.AddScoped<IToDoService, ToDoService>();
 
             var app = builder.Build();
 
