@@ -7,14 +7,9 @@ namespace SimpleToDoApi.Controllers
 {
     [Route("api/todo-items")]
     [ApiController]
-    public class ToDoItemsController: ControllerBase
+    public class ToDoItemsController(IToDoService service) : ControllerBase
     {
-        private readonly IToDoService _service;
-        public ToDoItemsController(IToDoService service)
-        {
-            _service = service;
-        }
-        
+
         [HttpPost]
         public async Task<ActionResult<ToDoItemDto>> CreateTodoItem([FromBody] CreateToDoItemDto createTodoItemDto)
         {
@@ -23,7 +18,7 @@ namespace SimpleToDoApi.Controllers
                 return BadRequest(ModelState);
             }
 
-            var created = await _service.CreateAsync(createTodoItemDto);
+            var created = await service.CreateAsync(createTodoItemDto);
 
             if (created == null)
             {
@@ -36,14 +31,14 @@ namespace SimpleToDoApi.Controllers
         [HttpGet]
         public async Task<ActionResult<PagedResult<ToDoItemDto>>> GetAllTodoItems([FromQuery] ToDoItemFilterDto filter)
         {
-            var result = await _service.GetAllAsync(filter);
+            var result = await service.GetAllAsync(filter);
             return Ok(result);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ToDoItemDto>> GetTodoItemById(int id)
         {
-            var todoItem = await _service.GetByIdAsync(id);
+            var todoItem = await service.GetByIdAsync(id);
 
             if (todoItem == null)
             {
@@ -60,7 +55,7 @@ namespace SimpleToDoApi.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var updated = await _service.UpdateAsync(id, updateDto);
+            var updated = await service.UpdateAsync(id, updateDto);
 
             if (updated == null)
                 return NotFound("Item not found or title already exists.");
@@ -71,7 +66,7 @@ namespace SimpleToDoApi.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteTodoItem(int id)
         {
-            var deleted = await _service.DeleteAsync(id);
+            var deleted = await service.DeleteAsync(id);
             if (!deleted)
                 return NotFound("Task not found.");
             return NoContent();
@@ -80,7 +75,7 @@ namespace SimpleToDoApi.Controllers
         [HttpDelete]
         public async Task<ActionResult> DeleteAllTodoItems()
         {
-            var deleted = await _service.DeleteAllAsync();
+            var deleted = await service.DeleteAllAsync();
             if (!deleted)
                 return NotFound("No tasks to delete.");
             return NoContent();

@@ -9,6 +9,7 @@ public static class UserMapper
     {
         return new UserDto
         {
+            Id = user.Id,
             UserName = user.UserName,
             Email = user.Email,
             Roles = user.Roles

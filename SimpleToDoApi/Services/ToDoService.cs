@@ -82,7 +82,7 @@ public class ToDoService : IToDoService
         return ToDoItemMapper.ToDto(newToDoItem);
     }
     
-    public async Task<ToDoItemDto> UpdateAsync(int id, UpdateToDoItemDto updateToDoItemDto)
+    public async Task<ToDoItemDto?> UpdateAsync(int id, UpdateToDoItemDto updateToDoItemDto)
     {
         // Проверка на уникальность названия (кроме текущей)
         bool titleExists = await _context.ToDoItems
