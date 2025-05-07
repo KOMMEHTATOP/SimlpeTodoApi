@@ -2,98 +2,89 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SimpleToDoApi.Data;
 using SimpleToDoApi.DTO.Role;
+using SimpleToDoApi.Interfaces;
 using SimpleToDoApi.Mappers;
+using SimpleToDoApi.Services;
 
 namespace SimpleToDoApi.Controllers;
 
 [Route("api/roles")]
 [ApiController]
-public class RoleController(ITodoContext context, IDatabaseCleaner databaseCleaner) : ControllerBase
+public class RoleController(IRoleService roleService) : ControllerBase
 {
-    [HttpPost]
-    public async Task<ActionResult<RoleDto>> CreateRole([FromBody] CreateRoleDto roleDto)
+    [HttpGet]
+    public async Task<ActionResult<List<RoleDto>>> GetAllRoles()
     {
-        if (await context.Roles.AnyAsync(r => r.Name == roleDto.Name))
-        {
-            return BadRequest("A role with this name already exists.");
-        }
-
-        var newRole = RoleMapper.FromDto(roleDto);
-
-        context.Roles.Add(newRole);
-        await context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetRoleById), new { id = newRole.Id }, RoleMapper.ToDto(newRole));
+        var rolesList = await roleService.GetAllRoles();
+        return Ok(rolesList);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<RoleDto>> GetRoleById(int id)
     {
-        var role = await context.Roles.FindAsync(id);
+        var result = await roleService.GetRole(id);
 
-        if (role == null)
+        if (result == null)
         {
-            return NotFound("Role not found.");
+            return NotFound();
         }
 
-        return Ok(RoleMapper.ToDto(role));
+        return Ok(result);
     }
 
-    [HttpGet]
-    public async Task<ActionResult<List<RoleDto>>> GetAllRoles()
+    [HttpPost]
+    public async Task<ActionResult<RoleDto>> CreateRole([FromBody] CreateRoleDto roleDto)
     {
-        var rolesList = await context.Roles.ToListAsync();
-        var roles = rolesList.Select(RoleMapper.ToDto).ToList();
-        return Ok(roles);
+        var result = await roleService.CreateRole(roleDto);
+
+        if (result.Error == RoleResult.RoleError.RoleExists)
+        {
+            return Conflict("Role already exists");
+        }
+
+        if (result.Role == null)
+        {
+            return StatusCode(500, "Unexpected error: Role is null");
+        }
+        
+        return CreatedAtAction(nameof(GetRoleById), new { id = result.Role.Id }, result.Role);
     }
 
     [HttpPut("{id}")]
     public async Task<ActionResult<RoleDto>> UpdateRole([FromRoute] int id, [FromBody] UpdateRoleDto roleDto)
     {
-        var existingRole = await context.Roles.FindAsync(id);
+        var result = await roleService.UpdateRole(id, roleDto);
 
-        if (existingRole == null)
+        if (result.Error != null)
         {
-            return NotFound("Role not found.");
-        }
-
-        if (existingRole.Name != roleDto.Name)
-        {
-            var nameConflict = await context.Roles.AnyAsync(r => r.Name == roleDto.Name && r.Id != id);
-
-            if (nameConflict)
+            switch (result.Error)
             {
-                return BadRequest("A role with this name already exists.");
+                case RoleResult.RoleError.RoleExists:
+                    return Conflict(result.Error);
+                case RoleResult.RoleError.RoleNotFound:
+                    return NotFound(result.Error);
             }
         }
-
-        existingRole.Name = roleDto.Name;
-        existingRole.Description = roleDto.Description;
-
-        await context.SaveChangesAsync();
-
-        return Ok(RoleMapper.ToDto(existingRole));
+        
+        return Ok(result.Role);
     }
 
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteRole(int id)
     {
-        var role = await context.Roles.FirstOrDefaultAsync(r => r.Id == id);
+        var result = await roleService.DeleteRole(id);
 
-        if (role == null)
+        if (!result)
         {
-            return NotFound("Role not found.");
+            return NotFound();
         }
-
-        context.Roles.Remove(role);
-        await context.SaveChangesAsync();
         return NoContent();
     }
 
     [HttpDelete]
     public async Task<ActionResult> DeleteAllRoles()
     {
-        await databaseCleaner.ClearRoles();
+        await roleService.DeleteAllRoles();
         return NoContent();
     }
 }

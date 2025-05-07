@@ -9,7 +9,7 @@ public static class RoleMapper
     {
         return new RoleDto()
         {
-            Name = role.Name, Description = role.Description
+            Id = role.Id, Name = role.Name, Description = role.Description
         };
     }
 

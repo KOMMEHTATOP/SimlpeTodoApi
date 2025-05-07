@@ -25,6 +25,7 @@ namespace SimpleToDoApi.Controllers
             {
                 return NotFound();
             }
+            
             return Ok(result);
         }
         
@@ -75,6 +76,7 @@ namespace SimpleToDoApi.Controllers
                         return BadRequest("No roles provided");
                 }
             }
+            
             return Ok(result.User);
         }
 
@@ -87,6 +89,7 @@ namespace SimpleToDoApi.Controllers
             {
                 return NotFound();
             }
+            
             return NoContent();
         }
 

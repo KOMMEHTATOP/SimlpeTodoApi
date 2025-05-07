@@ -106,6 +106,8 @@ namespace SimpleToDoApi
             builder.Services.AddScoped<IDatabaseCleaner, DatabaseCleaner>();
             builder.Services.AddScoped<ITodoContext, TodoContext>();
             builder.Services.AddScoped<IToDoService, ToDoService>();
+            builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IRoleService, RoleService>();
 
             var app = builder.Build();
 
