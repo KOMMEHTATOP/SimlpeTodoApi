@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using SimpleToDoApi.DTO;
 using SimpleToDoApi.DTO.ToDoItem;
 using SimpleToDoApi.Interfaces;
 
@@ -9,75 +8,92 @@ namespace SimpleToDoApi.Controllers
     [ApiController]
     public class ToDoItemsController(IToDoService service) : ControllerBase
     {
-
-        [HttpPost]
-        public async Task<ActionResult<ToDoItemDto>> CreateTodoItem([FromBody] CreateToDoItemDto createTodoItemDto)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            var created = await service.CreateAsync(createTodoItemDto);
-
-            if (created == null)
-            {
-                return BadRequest("A task with this title already exists.");
-            }
-
-            return CreatedAtAction(nameof(GetTodoItemById), new { id = created.Id }, created);        
-        }
-        
         [HttpGet]
-        public async Task<ActionResult<PagedResult<ToDoItemDto>>> GetAllTodoItems([FromQuery] ToDoItemFilterDto filter)
+        public async Task<ActionResult<ToDoMetaPage<ToDoItemDto>>> GetAllTodoItems([FromQuery] ToDoItemFilterDto filter)
         {
-            var result = await service.GetAllAsync(filter);
-            return Ok(result);
+            var result = await service.GetAllToDo(filter);
+
+            if (result.Error != null)
+            {
+                return BadRequest("User does not exist.");
+            }
+            return Ok(result.Page);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ToDoItemDto>> GetTodoItemById(int id)
         {
-            var todoItem = await service.GetByIdAsync(id);
+            var todoItem = await service.GetByIdToDo(id);
 
-            if (todoItem == null)
+            if (todoItem.Error!=null)
             {
                 return NotFound("Task not found.");
             }
 
-            return Ok(todoItem);
+            return Ok(todoItem.Item);
         }
-        
+     
+        [HttpPost]
+        public async Task<ActionResult<ToDoItemDto>> CreateTodoItem([FromBody] CreateToDoItemDto createTodoItemDto)
+        {
+            var result = await service.CreateToDo(createTodoItemDto);
+
+            if (result.Error != null)
+            {
+                return BadRequest("Title already exists");
+            }
+
+            if (result.CreatedItem == null)
+            {
+                return StatusCode(500, "Unexpected null result");
+            }
+            
+            return CreatedAtAction(nameof(GetTodoItemById), new {id = result.CreatedItem.Id }, result.CreatedItem);
+        }
+
         [HttpPut("{id}")]
         public async Task<ActionResult<ToDoItemDto>> UpdateTodoItem(
             [FromRoute] int id, [FromBody] UpdateToDoItemDto updateDto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            var result = await service.UpdateToDo(id, updateDto);
 
-            var updated = await service.UpdateAsync(id, updateDto);
-
-            if (updated == null)
-                return NotFound("Item not found or title already exists.");
-
-            return Ok(updated);
+            if (result.Error != null)
+            {
+                switch (result.Error)
+                {
+                    case UpdateToDoItemResult.UpdateTodoItemResult.ItemNotFound:
+                        return NotFound("Task not found.");
+                    case UpdateToDoItemResult.UpdateTodoItemResult.TitleExists:
+                        return BadRequest("Title already exists");
+                }
+            }
+            
+            return Ok(result.UpdatedToDoItem);
         }
 
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteTodoItem(int id)
         {
-            var deleted = await service.DeleteAsync(id);
+            var deleted = await service.DeleteId(id);
+
             if (!deleted)
+            {
                 return NotFound("Task not found.");
+            }
+            
             return NoContent();
         }
 
         [HttpDelete]
         public async Task<ActionResult> DeleteAllTodoItems()
         {
-            var deleted = await service.DeleteAllAsync();
+            var deleted = await service.DeleteAll();
+
             if (!deleted)
+            {
                 return NotFound("No tasks to delete.");
+            }
+            
             return NoContent();
         }
     }

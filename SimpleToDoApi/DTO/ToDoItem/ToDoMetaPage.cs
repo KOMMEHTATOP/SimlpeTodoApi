@@ -1,6 +1,6 @@
-namespace SimpleToDoApi.DTO;
+namespace SimpleToDoApi.DTO.ToDoItem;
 
-public class PagedResult<T>
+public class ToDoMetaPage<T>
 {
     public int TotalCount { get; set; }
     public int Page { get; set; }

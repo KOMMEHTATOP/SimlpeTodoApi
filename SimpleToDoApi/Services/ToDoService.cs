@@ -2,7 +2,6 @@ using SimpleToDoApi.Data;
 using SimpleToDoApi.DTO.ToDoItem;
 using SimpleToDoApi.Mappers;
 using Microsoft.EntityFrameworkCore;
-using SimpleToDoApi.DTO;
 using SimpleToDoApi.Interfaces;
 
 namespace SimpleToDoApi.Services;
@@ -17,7 +16,7 @@ public class ToDoService : IToDoService
         _databaseCleaner = databaseCleaner;
     }
 
-    public async Task<PagedResult<ToDoItemDto>> GetAllAsync(ToDoItemFilterDto filter)
+    public async Task<GetToDoItemsResult> GetAllToDo(ToDoItemFilterDto filter)
     {
         var query = _context.ToDoItems.AsQueryable();
 
@@ -37,7 +36,10 @@ public class ToDoService : IToDoService
 
             if (!userExists)
             {
-                throw new Exception("User does not exist.");
+                return new GetToDoItemsResult()
+                {
+                    Error = GetToDoItemsResult.GetToDoItemsError.UserNotFound
+                };
             }
 
             query = query.Where(i => i.CreatedByUserId == filter.UserId);
@@ -51,62 +53,94 @@ public class ToDoService : IToDoService
 
         var dtos = items.Select(ToDoItemMapper.ToDto).ToList();
 
-        return new PagedResult<ToDoItemDto>
+        return new GetToDoItemsResult()
         {
-            TotalCount = totalCount, Page = filter.Page, PageSize = filter.PageSize, Data = dtos
+            Page = new ToDoMetaPage<ToDoItemDto>()
+            {
+                TotalCount = totalCount,
+                Page = filter.Page,
+                PageSize = filter.PageSize,
+                Data = dtos
+            }
         };
     }
 
-    public async Task<ToDoItemDto?> GetByIdAsync(int id)
+    public async Task<ToDoItemResult> GetByIdToDo(int id)
     {
         var todoItem = await _context.ToDoItems.FindAsync(id);
 
         if (todoItem == null)
         {
-            return null;
+            return new ToDoItemResult
+            {
+                Error = ToDoItemResult.ToDoItemError.ToDoNotFound
+            };
         }
-
-        return ToDoItemMapper.ToDto(todoItem);
+        var dto = ToDoItemMapper.ToDto(todoItem);
+        return new ToDoItemResult()
+        {
+            Item = dto
+        };
     }
 
-    public async Task<ToDoItemDto?> CreateAsync(CreateToDoItemDto createToDoItemDto)
+    public async Task<CreateToDoResult> CreateToDo(CreateToDoItemDto createToDoItemDto)
     {
-        if (await _context.ToDoItems.AnyAsync(t => t.Title == createToDoItemDto.Title))
+        bool titleExists = await _context.ToDoItems.AnyAsync(item => item.Title == createToDoItemDto.Title);
+        if (titleExists)
         {
-            return null;
+            return new CreateToDoResult
+            {
+                Error = CreateToDoResult.CreateToDoItemDtoError.TitleExists
+            };
         }
 
         var newToDoItem = ToDoItemMapper.FromDto(createToDoItemDto);
         _context.ToDoItems.Add(newToDoItem);
         await _context.SaveChangesAsync();
-        return ToDoItemMapper.ToDto(newToDoItem);
+        
+        return new CreateToDoResult()
+        {
+            CreatedItem = ToDoItemMapper.ToDto(newToDoItem),
+        };
     }
     
-    public async Task<ToDoItemDto?> UpdateAsync(int id, UpdateToDoItemDto updateToDoItemDto)
+    public async Task<UpdateToDoItemResult> UpdateToDo(int id, UpdateToDoItemDto updateToDoItemDto)
     {
-        // Проверка на уникальность названия (кроме текущей)
-        bool titleExists = await _context.ToDoItems
+       var todoItem = await _context.ToDoItems.FindAsync(id);
+
+       if (todoItem == null)
+       {
+           return new UpdateToDoItemResult
+           {
+               Error = UpdateToDoItemResult.UpdateTodoItemResult.ItemNotFound
+           };
+       }
+       
+       bool titleExists = await _context.ToDoItems
             .AnyAsync(t => t.Title == updateToDoItemDto.Title && t.Id != id);
 
-        if (titleExists)
-            return null; // Можно выбросить исключение или вернуть ошибку, если хочешь
+       if (titleExists)
+       {
+           return new UpdateToDoItemResult()
+           {
+               Error = UpdateToDoItemResult.UpdateTodoItemResult.TitleExists
+           };
+       }
 
-        var entity = await _context.ToDoItems.FindAsync(id);
-
-        if (entity == null)
-            return null;
-
-        entity.Title = updateToDoItemDto.Title;
-        entity.Description = updateToDoItemDto.Description;
-        entity.IsComplete = updateToDoItemDto.IsComplete;
-        entity.Updated = DateTime.UtcNow;
+       todoItem.Title = updateToDoItemDto.Title;
+       todoItem.Description = updateToDoItemDto.Description;
+       todoItem.IsComplete = updateToDoItemDto.IsComplete;
+       todoItem.Updated = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-
-        return ToDoItemMapper.ToDto(entity);
+        
+        return new UpdateToDoItemResult()
+        {
+            UpdatedToDoItem = ToDoItemMapper.ToDto(todoItem)
+        };
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteId(int id)
     {
         var todoItem = await _context.ToDoItems.FindAsync(id);
 
@@ -119,11 +153,10 @@ public class ToDoService : IToDoService
         await _context.SaveChangesAsync();
         return true;
     }
-    public async Task<bool> DeleteAllAsync()
+    public async Task<bool> DeleteAll()
     {
-        // Можно проверить, были ли вообще задачи
         var any = await _context.ToDoItems.AnyAsync();
         await _databaseCleaner.ClearTodoItems();
-        return any; // true если что-то было удалено, false если таблица и так была пуста
+        return any;
     }
 }

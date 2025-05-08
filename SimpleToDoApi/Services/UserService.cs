@@ -176,7 +176,8 @@ public class UserService : IUserService
 
     public async Task<bool> DeleteAllAsync()
     {
+        var any = await _context.Users.AnyAsync();
         await _databaseCleaner.ClearUsers();
-        return true;
+        return any;
     }
 }

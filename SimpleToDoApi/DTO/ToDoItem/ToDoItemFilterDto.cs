@@ -1,4 +1,4 @@
-namespace SimpleToDoApi.DTO;
+namespace SimpleToDoApi.DTO.ToDoItem;
 
 public class ToDoItemFilterDto
 {
