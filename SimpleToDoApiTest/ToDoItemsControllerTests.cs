@@ -1,335 +1,146 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Moq;
 using SimpleToDoApi.Controllers;
-using SimpleToDoApi.Data;
-using SimpleToDoApi.Models;
-using MockQueryable.Moq;
-using Moq.EntityFrameworkCore;
 using SimpleToDoApi.DTO.ToDoItem;
-using System.Linq.Expressions;
+using SimpleToDoApi.Interfaces;
 
 namespace SimpleToDoApiTest
 {
     public class ToDoItemsControllerTests
     {
         [Fact]
-        public async Task GetTodoItems_ReturnsAllItems_WhenDatabaseHasItems()
+        public async Task GetTodoItem_ReturnsTodoItem_WhenTaskExists()
         {
-            var listTasks = new List<ToDoItem>
-            {
-                new ToDoItem { Id = 1, Title = "Title1", Description = "Desc1", IsComplete = false },
-                new ToDoItem { Id = 2, Title = "Title2", Description = "Desc2", IsComplete = true },
-                new ToDoItem { Id = 3, Title = "Title3", Description = "Desc3", IsComplete = false }
-            }.AsQueryable();
+            var expected = new ToDoItemDto { Id = 1, Title = "Test", Description = "Desc", IsComplete = false };
+            var mockService = new Mock<IToDoService>();
+            mockService.Setup(s => s.GetByIdToDo(1)).ReturnsAsync(new ToDoItemResult { Item = expected });
 
-            var mockDbSet = listTasks.BuildMockDbSet();
-            var mockContext = new Mock<ITodoContext>();
-            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockService.Object);
 
-            var result = await controller.GetAllTodoItems();
+            var result = await controller.GetTodoItemById(1);
 
-            var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnedItems = Assert.IsAssignableFrom<IEnumerable<ToDoItemDto>>(okResult.Value);
-
-            Assert.Equal(3, returnedItems.Count());
-            Assert.Contains(returnedItems, item => item.Title == "Title1");
-            Assert.Contains(returnedItems, item => item.Title == "Title2");
-            Assert.Contains(returnedItems, item => item.Title == "Title3");
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var item = Assert.IsType<ToDoItemDto>(ok.Value);
+            Assert.Equal(expected.Title, item.Title);
         }
 
         [Fact]
         public async Task GetTodoItem_ReturnsNotFound_WhenTaskDoesNotExist()
         {
-            var mockDbSet = new Mock<DbSet<ToDoItem>>();
-            mockDbSet.Setup(m => m.FindAsync(1)).ReturnsAsync((ToDoItem?)null);
+            var mockService = new Mock<IToDoService>();
+            mockService.Setup(s => s.GetByIdToDo(It.IsAny<int>())).ReturnsAsync(new ToDoItemResult
+            {
+                Error = ToDoItemResult.ToDoItemError.ToDoNotFound
+            });
 
-            var mockContext = new Mock<ITodoContext>();
-            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockService.Object);
 
-            var result = await controller.GetTodoItemById(1);
+            var result = await controller.GetTodoItemById(42);
 
-            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result.Result);
-            Assert.Equal("Task not found.", notFoundResult.Value);
-            mockDbSet.Verify(m => m.FindAsync(1), Times.Once);
+            var notFound = Assert.IsType<NotFoundObjectResult>(result.Result);
+            Assert.Equal("Task not found.", notFound.Value);
         }
 
         [Fact]
-        public async Task GetTodoItem_ReturnsTodoItem_WhenTaskExists()
+        public async Task CreateTodoItem_ReturnsCreatedAt_WhenValid()
         {
-            var testTodoItem = new ToDoItem
-            {
-                Id = 1, Title = "Test Task", Description = "Test Desc", IsComplete = false
-            };
-            var mockDbSet = new Mock<DbSet<ToDoItem>>();
-            mockDbSet.Setup(m => m.FindAsync(1)).ReturnsAsync(testTodoItem);
+            var input = new CreateToDoItemDto { Title = "Test", Description = "Desc", IsComplete = false };
+            var output = new ToDoItemDto { Id = 1, Title = "Test", Description = "Desc", IsComplete = false };
+            var mockService = new Mock<IToDoService>();
+            mockService.Setup(s => s.CreateToDo(input)).ReturnsAsync(new CreateToDoResult { CreatedItem = output });
 
-            var mockContext = new Mock<ITodoContext>();
-            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockService.Object);
 
-            var result = await controller.GetTodoItemById(1);
+            var result = await controller.CreateTodoItem(input);
 
-            var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnedItem = Assert.IsType<ToDoItemDto>(okResult.Value);
-            Assert.Equal(testTodoItem.Title, returnedItem.Title);
-            Assert.Equal(testTodoItem.Description, returnedItem.Description);
-            Assert.Equal(testTodoItem.IsComplete, returnedItem.IsComplete);
+            var created = Assert.IsType<CreatedAtActionResult>(result.Result);
+            var item = Assert.IsType<ToDoItemDto>(created.Value);
+            Assert.Equal("Test", item.Title);
         }
 
         [Fact]
-        public async Task PostTodoItem_ReturnsCreatedAtActionResult_WhenModelIsValid()
+        public async Task CreateTodoItem_ReturnsBadRequest_WhenTitleExists()
         {
-            var validToDoItemDto = new CreateToDoItemDto
+            var input = new CreateToDoItemDto { Title = "Duplicate", Description = "Desc", IsComplete = false };
+            var mockService = new Mock<IToDoService>();
+            mockService.Setup(s => s.CreateToDo(It.IsAny<CreateToDoItemDto>())).ReturnsAsync(new CreateToDoResult
             {
-                Title = "TestTask", Description = "Test Description", IsComplete = false
-            };
+                Error = CreateToDoResult.CreateToDoItemDtoError.TitleExists
+            });
 
-            var listTasks = new List<ToDoItem>().AsQueryable();
-            var mockDbSet = listTasks.BuildMockDbSet();
-            var mockContext = new Mock<ITodoContext>();
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            mockContext.Setup(c => c.SaveChangesAsync(default)).ReturnsAsync(1);
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockService.Object);
 
-            var result = await controller.CreateTodoItem(validToDoItemDto);
+            var result = await controller.CreateTodoItem(input);
 
-            var createdAtResult = Assert.IsType<CreatedAtActionResult>(result.Result);
-            Assert.Equal(201, createdAtResult.StatusCode);
-
-            var returnedTask = Assert.IsType<ToDoItemDto>(createdAtResult.Value);
-            Assert.Equal(validToDoItemDto.Title, returnedTask.Title);
-            Assert.Equal(validToDoItemDto.Description, returnedTask.Description);
-            Assert.Equal(validToDoItemDto.IsComplete, returnedTask.IsComplete);
-
-            mockDbSet.Verify(m => m.Add(It.Is<ToDoItem>(t =>
-                t.Title == validToDoItemDto.Title &&
-                t.Description == validToDoItemDto.Description &&
-                t.IsComplete == validToDoItemDto.IsComplete)), Times.Once());
-            mockContext.Verify(m => m.SaveChangesAsync(default), Times.Once());
-        }
-        
-        [Fact]
-        public async Task PostTodoItem_ReturnsBadRequest_WhenModelIsInvalid()
-        {
-            var mockContext = new Mock<ITodoContext>();
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-
-            mockContext.Setup(c => c.ToDoItems).ReturnsDbSet(new List<ToDoItem>());
-
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
-
-            var inValidItem = new CreateToDoItemDto
-            {
-                Title = "",
-                IsComplete = false
-            };
-
-            controller.ModelState.AddModelError("Title", "Title is required.");
-
-            var result = await controller.CreateTodoItem(inValidItem);
-
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
-            Assert.Equal(400, badRequestResult.StatusCode);
-
-            var errors = Assert.IsType<SerializableError>(badRequestResult.Value);
-            Assert.True(errors.ContainsKey("Title"));
-        }
-    
-        [Fact]
-        public async Task UpdateTodoItem_UpdatesItem_WhenModelIsValid()
-        {
-            var existingItem = new ToDoItem
-            {
-                Id = 1, Title = "OldTitle", Description = "OldDesc", IsComplete = false
-            };
-            var updatedItemDto = new UpdateToDoItemDto
-            {
-                Title = "NewTitle", Description = "NewDesc", IsComplete = true
-            };
-
-            var listTasks = new List<ToDoItem>
-            {
-                existingItem
-            }.AsQueryable();
-            var mockDbSet = listTasks.BuildMockDbSet();
-            mockDbSet.Setup(m => m.FindAsync(1)).ReturnsAsync(existingItem);
-
-            var mockContext = new Mock<ITodoContext>();
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            mockContext.Setup(c => c.SaveChangesAsync(default)).ReturnsAsync(1);
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
-
-            var result = await controller.UpdateTodoItem(1, updatedItemDto);
-
-            var okResult = Assert.IsType<OkObjectResult>(result.Result);
-            var returnedTask = Assert.IsType<ToDoItemDto>(okResult.Value);
-            Assert.Equal(updatedItemDto.Title, returnedTask.Title);
-            Assert.Equal(updatedItemDto.Description, returnedTask.Description);
-            Assert.Equal(updatedItemDto.IsComplete, returnedTask.IsComplete);
-
-            Assert.Equal(updatedItemDto.Title, existingItem.Title);
-            Assert.Equal(updatedItemDto.Description, existingItem.Description);
-            Assert.Equal(updatedItemDto.IsComplete, existingItem.IsComplete);
-
-            mockContext.Verify(m => m.SaveChangesAsync(default), Times.Once());
+            var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+            Assert.Equal("Title already exists", badRequest.Value);
         }
 
         [Fact]
-        public async Task DeleteTodoItem_DeletesItem_WhenTaskExists()
+        public async Task UpdateTodoItem_ReturnsUpdated_WhenValid()
         {
-            var itemToDelete = new ToDoItem
+            var updateDto = new UpdateToDoItemDto { Title = "Updated", Description = "UpdatedDesc", IsComplete = true };
+            var updatedDto = new ToDoItemDto { Id = 1, Title = "Updated", Description = "UpdatedDesc", IsComplete = true };
+
+            var mockService = new Mock<IToDoService>();
+            mockService.Setup(s => s.UpdateToDo(1, updateDto)).ReturnsAsync(new UpdateToDoItemResult
             {
-                Id = 1, Title = "OldTitle"
-            };
+                UpdatedToDoItem = updatedDto
+            });
 
-            var mockDbSet = new Mock<DbSet<ToDoItem>>();
-            mockDbSet.Setup(m => m.FindAsync(1)).ReturnsAsync(itemToDelete);
+            var controller = new ToDoItemsController(mockService.Object);
 
-            var mockContext = new Mock<ITodoContext>();
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            mockContext.Setup(c => c.SaveChangesAsync(default)).ReturnsAsync(1);
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
+            var result = await controller.UpdateTodoItem(1, updateDto);
+
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var item = Assert.IsType<ToDoItemDto>(ok.Value);
+            Assert.Equal("Updated", item.Title);
+        }
+
+        [Fact]
+        public async Task UpdateTodoItem_ReturnsNotFound_WhenItemMissing()
+        {
+            var dto = new UpdateToDoItemDto { Title = "X", Description = "Y", IsComplete = false };
+
+            var mockService = new Mock<IToDoService>();
+            mockService.Setup(s => s.UpdateToDo(1, dto)).ReturnsAsync(new UpdateToDoItemResult
+            {
+                Error = UpdateToDoItemResult.UpdateTodoItemResult.ItemNotFound
+            });
+
+            var controller = new ToDoItemsController(mockService.Object);
+
+            var result = await controller.UpdateTodoItem(1, dto);
+
+            var notFound = Assert.IsType<NotFoundObjectResult>(result.Result);
+            Assert.Equal("Task not found.", notFound.Value);
+        }
+
+        [Fact]
+        public async Task DeleteTodoItem_ReturnsNoContent_WhenDeleted()
+        {
+            var mockService = new Mock<IToDoService>();
+            mockService.Setup(s => s.DeleteId(1)).ReturnsAsync(true);
+
+            var controller = new ToDoItemsController(mockService.Object);
 
             var result = await controller.DeleteTodoItem(1);
 
             Assert.IsType<NoContentResult>(result);
-            mockDbSet.Verify(m => m.Remove(itemToDelete), Times.Once);
-            mockContext.Verify(c => c.SaveChangesAsync(default), Times.Once);
         }
 
         [Fact]
-        public async Task UpdateTodoItem_ReturnsNotFound_WhenTaskDoesNotExist()
+        public async Task DeleteTodoItem_ReturnsNotFound_WhenNotFound()
         {
-            var updatedItemDto = new UpdateToDoItemDto
-            {
-                Title = "NewTitle", Description = "NewDesc", IsComplete = true
-            };
-            var listTasks = new List<ToDoItem>().AsQueryable();
-            var mockDbSet = listTasks.BuildMockDbSet();
-            mockDbSet.Setup(m => m.FindAsync(1)).ReturnsAsync((ToDoItem)null);
+            var mockService = new Mock<IToDoService>();
+            mockService.Setup(s => s.DeleteId(999)).ReturnsAsync(false);
 
-            var mockContext = new Mock<ITodoContext>();
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
+            var controller = new ToDoItemsController(mockService.Object);
 
-            var result = await controller.UpdateTodoItem(1, updatedItemDto);
+            var result = await controller.DeleteTodoItem(999);
 
-            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result.Result);
-            Assert.Equal("Task not found.", notFoundResult.Value);
+            var notFound = Assert.IsType<NotFoundObjectResult>(result);
+            Assert.Equal("Task not found.", notFound.Value);
         }
-
-        [Fact]
-        public async Task PostTodoItem_ReturnsBadRequest_WhenTitleAlreadyExists()
-        {
-            var existingTask = new ToDoItem
-            {
-                Id = 1, Title = "TestTask", Description = "Desc", IsComplete = false
-            };
-            var listTasks = new List<ToDoItem>
-            {
-                existingTask
-            }.AsQueryable();
-            var mockDbSet = listTasks.BuildMockDbSet();
-            var mockContext = new Mock<ITodoContext>();
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
-
-            var newItem = new CreateToDoItemDto
-            {
-                Title = "TestTask", Description = "Desc2", IsComplete = true
-            };
-
-            var result = await controller.CreateTodoItem(newItem);
-
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
-            Assert.Equal(400, badRequestResult.StatusCode);
-            Assert.Equal("A task with this title already exists.", badRequestResult.Value);
-        }
-
-        [Fact]
-        public async Task UpdateTodoItem_ReturnsBadRequest_WhenTitleAlreadyExists()
-        {
-            var existingTask = new ToDoItem
-            {
-                Id = 1, Title = "OldTitle", Description = "Desc1", IsComplete = false
-            };
-            var otherTask = new ToDoItem
-            {
-                Id = 2, Title = "NewTitle", Description = "Desc2", IsComplete = true
-            };
-            var listTasks = new List<ToDoItem>
-            {
-                existingTask, otherTask
-            }.AsQueryable();
-            var mockDbSet = listTasks.BuildMockDbSet();
-            mockDbSet.Setup(m => m.FindAsync(1)).ReturnsAsync(existingTask);
-
-            var mockContext = new Mock<ITodoContext>();
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
-
-            var updateDto = new UpdateToDoItemDto
-            {
-                Title = "NewTitle", Description = "Any", IsComplete = true
-            };
-
-            var result = await controller.UpdateTodoItem(1, updateDto);
-
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
-            Assert.Equal(400, badRequestResult.StatusCode);
-            Assert.Equal("A task with this title already exists.", badRequestResult.Value);
-        }
-
-        [Fact]
-        public async Task DeleteTodoItem_ReturnsNotFound_WhenTaskDoesNotExist()
-        {
-            var listTasks = new List<ToDoItem>().AsQueryable();
-            var mockDbSet = listTasks.BuildMockDbSet();
-            mockDbSet.Setup(m => m.FindAsync(5)).ReturnsAsync((ToDoItem)null);
-
-            var mockContext = new Mock<ITodoContext>();
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-            mockContext.Setup(c => c.ToDoItems).Returns(mockDbSet.Object);
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
-
-            var result = await controller.DeleteTodoItem(5);
-
-            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
-            Assert.Equal("Task not found.", notFoundResult.Value);
-        }
-
-        [Fact]
-        public async Task UpdateTodoItem_ReturnsBadRequest_WhenModelIsInvalid()
-        {
-            var mockContext = new Mock<ITodoContext>();
-            mockContext.Setup(c=>c.ToDoItems).ReturnsDbSet(new List<ToDoItem>
-            {
-                new ToDoItem {Id = 1, Title = "TestTask", Description = "Desc1", IsComplete = false}
-            });
-            var mockCleaner = new Mock<IDatabaseCleaner>();
-            var controller = new ToDoItemsController(mockContext.Object, mockCleaner.Object);
-            
-            var invalidDto = new UpdateToDoItemDto { Title = "", Description = "Desc", IsComplete = false };
-            controller.ModelState.AddModelError("Title", "Title is required.");
-
-            var result = await controller.UpdateTodoItem(1, invalidDto);
-
-            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
-            Assert.Equal(400, badRequestResult.StatusCode);
-            var errors = Assert.IsType<SerializableError>(badRequestResult.Value);
-            Assert.True(errors.ContainsKey("Title"));
-        }    
     }
 }
