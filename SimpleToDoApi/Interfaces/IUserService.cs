@@ -5,7 +5,7 @@ namespace SimpleToDoApi.Interfaces;
 
 public interface IUserService
 {
-    Task<List<UserDto>> GetAllUsers();
+    Task<UserPagedResult<UserDto>> GetAllUsers(UserQueryParameters userQueryParameters);
     Task<UserDto?> GetUserById(string id);
     Task<CreateUserResult> CreateAsync(CreateUserDto createUserDto);
     Task<UpdateUserResult> UpdateAsync(UpdateUserDto updateUserDto);

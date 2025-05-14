@@ -23,78 +23,136 @@ public class UserService : IUserService
         _context = context;
         _dbCleaner = dbCleaner;
     }
-    
-public async Task<List<UserDto>> GetAllUsers()
-{
-    // 1. Получаем всех пользователей (сущности User)
-    var users = await _userManager.Users.ToListAsync();
 
-    // 2. Если пользователей нет, сразу возвращаем пустой список DTO
-    if (!users.Any())
+    public async Task<UserPagedResult<UserDto>> GetAllUsers(UserQueryParameters parameters)
     {
-        return new List<UserDto>();
-    }
+            // 1. Начальный запрос к пользователям
+            var query = _userManager.Users.AsQueryable();
 
-    // 3. Собираем ID всех загруженных пользователей.
-    var userIds = users.Select(u => u.Id).ToList();
-
-    // 4. Загружаем все связи "пользователь-роль" для НАШИХ пользователей ОДНИМ запросом.
-    // Каждая запись здесь - это пара { UserId, RoleId }
-    var userRoleLinks = await _context.UserRoles // Это DbSet<IdentityUserRole<string>>
-                                    .Where(ur => userIds.Contains(ur.UserId))
-                                    .Select(ur => new { ur.UserId, ur.RoleId })
-                                    .ToListAsync();
-
-    // 5. Готовимся загружать информацию о ролях.
-    // Если связей "пользователь-роль" не нашлось, значит ни у кого из пользователей нет ролей.
-    // В этом случае нам не нужно делать запрос к таблице Roles.
-    Dictionary<string, string> rolesMap = new Dictionary<string, string>();
-    List<string> distinctRoleIdsAcrossAllUsers = new List<string>();
-
-    if (userRoleLinks.Any())
-    {
-        // 6. Собираем УНИКАЛЬНЫЕ ID всех ролей, которые есть у наших пользователей.
-        distinctRoleIdsAcrossAllUsers = userRoleLinks
-            .Select(ur => ur.RoleId)
-            .Distinct()
-            .ToList();
-
-        // 7. Загружаем информацию (Id и Name) только для этих УНИКАЛЬНЫХ ролей ОДНИМ запросом.
-        // Превращаем результат в словарь для быстрого поиска имени роли по ее ID.
-        rolesMap = await _context.Roles // Это DbSet<Role>
-                                   .Where(r => distinctRoleIdsAcrossAllUsers.Contains(r.Id))
-                                   .ToDictionaryAsync(r => r.Id, r => r.Name); // Словарь [RoleId -> RoleName]
-    }
-
-    // 8. Группируем связи "пользователь-роль" по UserId.
-    // Для каждого UserId мы получим список всех RoleId, которые ему назначены.
-    var userRolesGroupedByUserId = userRoleLinks.ToLookup(ur => ur.UserId, ur => ur.RoleId);
-
-    // 9. Формируем итоговый список DTO.
-    var usersListDto = users.Select(userEntity => // Идем по списку НАШИХ сущностей User
-    {
-        List<string> currentUserRoleNames = new List<string>();
-        if (userRolesGroupedByUserId.Contains(userEntity.Id)) // Проверяем, есть ли у этого пользователя вообще роли
-        {
-            // userRolesGroupedByUserId[userEntity.Id] - это коллекция всех RoleId для данного userEntity.Id
-            foreach (var roleIdAssignedToUser in userRolesGroupedByUserId[userEntity.Id])
+            // 2. Применение фильтров
+            if (!string.IsNullOrWhiteSpace(parameters.EmailContains))
             {
-                if (rolesMap.TryGetValue(roleIdAssignedToUser, out var roleName)) // Ищем имя роли в нашем словаре
-                {
-                    currentUserRoleNames.Add(roleName);
-                }
-                // Если roleIdAssignedToUser нет в rolesMap (маловероятно, если данные консистентны),
-                // то эта роль просто не будет добавлена в список имен.
+                query = query.Where(u => u.Email != null && u.Email.Contains(parameters.EmailContains));
             }
+
+            if (!string.IsNullOrWhiteSpace(parameters.UserNameContains))
+            {
+                query = query.Where(u => u.UserName != null && u.UserName.Contains(parameters.UserNameContains));
+            }
+
+            if (!string.IsNullOrWhiteSpace(parameters.RoleName))
+            {
+                var role = await _roleManager.FindByNameAsync(parameters.RoleName);
+                if (role != null)
+                {
+                    // Находим UserId всех пользователей с этой ролью
+                    // Используем AsNoTracking для запросов только на чтение, если не планируем изменять эти сущности
+                    var userIdsInRole = await _context.UserRoles
+                                                .AsNoTracking()
+                                                .Where(ur => ur.RoleId == role.Id)
+                                                .Select(ur => ur.UserId)
+                                                .Distinct()
+                                                .ToListAsync();
+                    if (userIdsInRole.Any())
+                    {
+                        query = query.Where(u => userIdsInRole.Contains(u.Id));
+                    }
+                    else // Роль существует, но ни у кого ее нет
+                    {
+                        query = query.Where(u => false); // Вернет 0 пользователей
+                    }
+                }
+                else // Роль с таким именем не найдена
+                {
+                    query = query.Where(u => false); // Вернет 0 пользователей
+                }
+            }
+
+            // 3. Получение общего количества отфильтрованных пользователей (для пагинации)
+            var totalCount = await query.CountAsync();
+
+            // 4. Применение пагинации
+            var usersOnPage = await query
+                .Skip((parameters.PageNumber - 1) * parameters.PageSize)
+                .Take(parameters.PageSize)
+                .ToListAsync();
+
+            // 5. Если на текущей странице нет пользователей (после пагинации),
+            // но общее количество > 0 (значит, запросили слишком большую страницу),
+            // или если пользователей вообще нет по фильтрам.
+            if (!usersOnPage.Any())
+            {
+                return new UserPagedResult<UserDto>(new List<UserDto>(), totalCount, parameters.PageNumber, parameters.PageSize);
+            }
+
+            // 6. Собираем ID пользователей текущей страницы
+            var userIdsOnPage = usersOnPage.Select(u => u.Id).ToList();
+
+            // 7. Загружаем связи "пользователь-роль" ТОЛЬКО для пользователей текущей страницы
+            var usersRolesLinks = await _context.UserRoles
+                .AsNoTracking()
+                .Where(ur => userIdsOnPage.Contains(ur.UserId))
+                .Select(ur => new { ur.UserId, ur.RoleId })
+                .ToListAsync();
+
+            // 8. Готовим словарь для имен ролей
+            var rolesMap = new Dictionary<string, string?>(); // string? на случай если Name в Role может быть null
+            if (usersRolesLinks.Any())
+            {
+                var distinctRoleIdsInLinks = usersRolesLinks
+                    .Select(ur => ur.RoleId)
+                    .Distinct()
+                    .ToList();
+
+                if (distinctRoleIdsInLinks.Any())
+                {
+                    // Загружаем только те роли, которые реально используются пользователями на текущей странице
+                    rolesMap = await _context.Roles
+                                       .AsNoTracking()
+                                       .Where(r => distinctRoleIdsInLinks.Contains(r.Id))
+                                       .ToDictionaryAsync(r => r.Id, r => r.Name); // Если Name не может быть null, можно r.Name!
+                }
+            }
+
+            // 9. Группируем связи "пользователь-роль" по UserId
+            var userRolesGroupedByUserId = usersRolesLinks.ToLookup(ur => ur.UserId, ur => ur.RoleId);
+
+            // 10. Формируем итоговый список DTO для пользователей текущей страницы
+            var usersListDto = usersOnPage.Select(userEntity =>
+            {
+                var currentUserRoleNames = new List<string>();
+                if (userRolesGroupedByUserId.Contains(userEntity.Id))
+                {
+                    foreach (var roleIdFromLookup in userRolesGroupedByUserId[userEntity.Id])
+                    {
+                        if (rolesMap.TryGetValue(roleIdFromLookup, out var roleName) && roleName != null)
+                        {
+                            currentUserRoleNames.Add(roleName);
+                        }
+                    }
+                }
+                return UserMapper.ToDto(userEntity, currentUserRoleNames); // Предполагаем, что UserMapper.ToDto(User user, IList<string> roles) существует
+            }).ToList();
+
+            // 11. Возвращаем результат с пагинацией
+            return new UserPagedResult<UserDto>(usersListDto, totalCount, parameters.PageNumber, parameters.PageSize);
         }
-        // 10. Маппим сущность User и собранный список имен ролей в UserDto.
-        return UserMapper.ToDto(userEntity, currentUserRoleNames);
-    }).ToList();
-
-    // 11. Возвращаем результат.
-    return usersListDto;
-}
-
+        
+        // МОЙ МЕТОД РЕШЕНИЯ N+1
+        // public async Task<List<UserDto>> GetAllUsers()
+        // {
+        //     var users = await _userManager.Users.ToListAsync();
+        //     var usersListDto = new List<UserDto>();
+        //     foreach (var user in users)
+        //     {
+        //         var userRoles = await _userManager.GetRolesAsync(user);
+        //         usersListDto.Add(UserMapper.ToDto(user, userRoles));
+        //     }
+        //     return usersListDto;
+        // }
+        
+    
+    
     public Task<UserDto?> GetUserById(string id) // Убедись, что в IUserService тоже string
     {
         // TODO: Реализовать с использованием _userManager.FindByIdAsync(id)
