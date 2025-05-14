@@ -5,9 +5,9 @@ namespace SimpleToDoApi.Interfaces;
 public interface IToDoService
 {
     Task<GetToDoItemsResult> GetAllToDo(ToDoItemFilterDto filter);
-    Task<ToDoItemResult> GetByIdToDo(int id);
+    Task<ToDoItemResult> GetByIdToDo(string id);
     Task<CreateToDoResult> CreateToDo(CreateToDoItemDto createToDoItemDto);
-    Task<UpdateToDoItemResult> UpdateToDo(int id, UpdateToDoItemDto updateToDoItemDto);
-    Task<bool> DeleteId(int id);
+    Task<UpdateToDoItemResult> UpdateToDo(string id, UpdateToDoItemDto updateToDoItemDto);
+    Task<bool> DeleteId(string id);
     Task<bool> DeleteAll();
 }

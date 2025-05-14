@@ -1,4 +1,5 @@
 using SimpleToDoApi.DTO.Role;
+using SimpleToDoApi.DTO.User;
 
 namespace SimpleToDoApi.DTO;
 

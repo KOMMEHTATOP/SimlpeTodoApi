@@ -6,19 +6,12 @@ using SimpleToDoApi.Interfaces;
 
 namespace SimpleToDoApi.Services;
 
-public class ToDoService : IToDoService
+public class ToDoService(ITodoContext dbContext, IDatabaseCleaner databaseCleaner) : IToDoService
 {
-    private readonly ITodoContext _context;
-    private readonly IDatabaseCleaner _databaseCleaner;
-    public ToDoService(ITodoContext dbContext, IDatabaseCleaner databaseCleaner)
-    {
-        _context = dbContext;
-        _databaseCleaner = databaseCleaner;
-    }
 
     public async Task<GetToDoItemsResult> GetAllToDo(ToDoItemFilterDto filter)
     {
-        var query = _context.ToDoItems.AsQueryable();
+        var query = dbContext.ToDoItems.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -32,7 +25,7 @@ public class ToDoService : IToDoService
 
         if (filter.UserId > 0)
         {
-            var userExists = await _context.Users.AnyAsync(user => user.Id == filter.UserId);
+            var userExists = await dbContext.Users.AnyAsync(user => user.Id == filter.UserId);
 
             if (!userExists)
             {
@@ -67,7 +60,7 @@ public class ToDoService : IToDoService
 
     public async Task<ToDoItemResult> GetByIdToDo(int id)
     {
-        var todoItem = await _context.ToDoItems.FindAsync(id);
+        var todoItem = await dbContext.ToDoItems.FindAsync(id);
 
         if (todoItem == null)
         {
@@ -85,7 +78,7 @@ public class ToDoService : IToDoService
 
     public async Task<CreateToDoResult> CreateToDo(CreateToDoItemDto createToDoItemDto)
     {
-        bool titleExists = await _context.ToDoItems.AnyAsync(item => item.Title == createToDoItemDto.Title);
+        bool titleExists = await dbContext.ToDoItems.AnyAsync(item => item.Title == createToDoItemDto.Title);
         if (titleExists)
         {
             return new CreateToDoResult
@@ -95,8 +88,8 @@ public class ToDoService : IToDoService
         }
 
         var newToDoItem = ToDoItemMapper.FromDto(createToDoItemDto);
-        _context.ToDoItems.Add(newToDoItem);
-        await _context.SaveChangesAsync();
+        dbContext.ToDoItems.Add(newToDoItem);
+        await dbContext.SaveChangesAsync();
         
         return new CreateToDoResult()
         {
@@ -106,7 +99,7 @@ public class ToDoService : IToDoService
     
     public async Task<UpdateToDoItemResult> UpdateToDo(int id, UpdateToDoItemDto updateToDoItemDto)
     {
-       var todoItem = await _context.ToDoItems.FindAsync(id);
+       var todoItem = await dbContext.ToDoItems.FindAsync(id);
 
        if (todoItem == null)
        {
@@ -116,7 +109,7 @@ public class ToDoService : IToDoService
            };
        }
        
-       bool titleExists = await _context.ToDoItems
+       bool titleExists = await dbContext.ToDoItems
             .AnyAsync(t => t.Title == updateToDoItemDto.Title && t.Id != id);
 
        if (titleExists)
@@ -132,7 +125,7 @@ public class ToDoService : IToDoService
        todoItem.IsComplete = updateToDoItemDto.IsComplete;
        todoItem.Updated = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
+        await dbContext.SaveChangesAsync();
         
         return new UpdateToDoItemResult()
         {
@@ -142,21 +135,22 @@ public class ToDoService : IToDoService
 
     public async Task<bool> DeleteId(int id)
     {
-        var todoItem = await _context.ToDoItems.FindAsync(id);
+        var todoItem = await dbContext.ToDoItems.FindAsync(id);
 
         if (todoItem == null)
         {
             return false;
         }
 
-        _context.ToDoItems.Remove(todoItem);
-        await _context.SaveChangesAsync();
+        dbContext.ToDoItems.Remove(todoItem);
+        await dbContext.SaveChangesAsync();
         return true;
     }
+    
     public async Task<bool> DeleteAll()
     {
-        var any = await _context.ToDoItems.AnyAsync();
-        await _databaseCleaner.ClearTodoItems();
+        var any = await dbContext.ToDoItems.AnyAsync();
+        await databaseCleaner.ClearTodoItems();
         return any;
     }
 }

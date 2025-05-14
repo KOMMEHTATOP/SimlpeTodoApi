@@ -1,14 +1,15 @@
-﻿using Microsoft.EntityFrameworkCore;
-using SimpleToDoApi.DTO;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using SimpleToDoApi.Models;
 
-namespace SimpleToDoApi.Data
+namespace SimpleToDoApi.Interfaces
 {
     public interface ITodoContext
     {
         DbSet<ToDoItem> ToDoItems { get; }
         DbSet<User> Users { get; }
         DbSet<Role> Roles { get; }
+        DbSet<IdentityUserRole<string>> UserRoles { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using SimpleToDoApi.DTO;
+using SimpleToDoApi.DTO.User;
 using SimpleToDoApi.Interfaces;
-using SimpleToDoApi.Mappers;
 
 namespace SimpleToDoApi.Controllers
 {

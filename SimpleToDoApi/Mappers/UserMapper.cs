@@ -1,20 +1,19 @@
 using SimpleToDoApi.DTO;
+using SimpleToDoApi.DTO.User;
 using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Mappers;
 
 public static class UserMapper
 {
-    public static UserDto ToDto(User user)
+    public static UserDto ToDto(User user, IList<string> roles)
     {
         return new UserDto
         {
             Id = user.Id,
             UserName = user.UserName,
             Email = user.Email,
-            Roles = user.Roles
-                .Select(r => r.Name)
-                .ToList() ?? new List<string>()
+            Roles = roles.ToList()
         };
     }
 

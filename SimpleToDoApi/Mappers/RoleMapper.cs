@@ -9,7 +9,7 @@ public static class RoleMapper
     {
         return new RoleDto()
         {
-            Id = role.Id, Name = role.Name, Description = role.Description
+            Id = role.Id, Name = role.Name
         };
     }
 
@@ -17,7 +17,7 @@ public static class RoleMapper
     {
         return new Role()
         {
-            Name = roleDto.Name, Description = roleDto.Description
+            Name = roleDto.Name
         };
     }
 }

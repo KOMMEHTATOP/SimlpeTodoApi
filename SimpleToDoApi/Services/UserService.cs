@@ -1,183 +1,134 @@
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SimpleToDoApi.Data;
 using SimpleToDoApi.DTO;
+using SimpleToDoApi.DTO.User;
 using SimpleToDoApi.Interfaces;
 using SimpleToDoApi.Mappers;
-using System.Runtime.InteropServices.JavaScript;
+using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Services;
 
 public class UserService : IUserService
 {
-
+    private readonly UserManager<User> _userManager;
+    private readonly RoleManager<Role> _roleManager;
     private readonly ITodoContext _context;
-    private readonly IDatabaseCleaner _databaseCleaner;
+    private readonly IDatabaseCleaner _dbCleaner;
 
-    public UserService(ITodoContext context, IDatabaseCleaner databaseCleaner)
+    public UserService(UserManager<User> userManager, RoleManager<Role> roleManager, ITodoContext context, IDatabaseCleaner dbCleaner)
     {
+        _userManager = userManager;
+        _roleManager = roleManager;
         _context = context;
-        _databaseCleaner = databaseCleaner;
+        _dbCleaner = dbCleaner;
+    }
+    
+public async Task<List<UserDto>> GetAllUsers()
+{
+    // 1. Получаем всех пользователей (сущности User)
+    var users = await _userManager.Users.ToListAsync();
+
+    // 2. Если пользователей нет, сразу возвращаем пустой список DTO
+    if (!users.Any())
+    {
+        return new List<UserDto>();
     }
 
-    public async Task<List<UserDto>> GetAllUsers()
+    // 3. Собираем ID всех загруженных пользователей.
+    var userIds = users.Select(u => u.Id).ToList();
+
+    // 4. Загружаем все связи "пользователь-роль" для НАШИХ пользователей ОДНИМ запросом.
+    // Каждая запись здесь - это пара { UserId, RoleId }
+    var userRoleLinks = await _context.UserRoles // Это DbSet<IdentityUserRole<string>>
+                                    .Where(ur => userIds.Contains(ur.UserId))
+                                    .Select(ur => new { ur.UserId, ur.RoleId })
+                                    .ToListAsync();
+
+    // 5. Готовимся загружать информацию о ролях.
+    // Если связей "пользователь-роль" не нашлось, значит ни у кого из пользователей нет ролей.
+    // В этом случае нам не нужно делать запрос к таблице Roles.
+    Dictionary<string, string> rolesMap = new Dictionary<string, string>();
+    List<string> distinctRoleIdsAcrossAllUsers = new List<string>();
+
+    if (userRoleLinks.Any())
     {
-        var users = await _context.Users
-            .Include(u => u.Roles)
-            .ToListAsync();
-        
-        return users.Select(UserMapper.ToDto).ToList();
+        // 6. Собираем УНИКАЛЬНЫЕ ID всех ролей, которые есть у наших пользователей.
+        distinctRoleIdsAcrossAllUsers = userRoleLinks
+            .Select(ur => ur.RoleId)
+            .Distinct()
+            .ToList();
+
+        // 7. Загружаем информацию (Id и Name) только для этих УНИКАЛЬНЫХ ролей ОДНИМ запросом.
+        // Превращаем результат в словарь для быстрого поиска имени роли по ее ID.
+        rolesMap = await _context.Roles // Это DbSet<Role>
+                                   .Where(r => distinctRoleIdsAcrossAllUsers.Contains(r.Id))
+                                   .ToDictionaryAsync(r => r.Id, r => r.Name); // Словарь [RoleId -> RoleName]
     }
 
-    public async Task<UserDto?> GetUserById(int id)
-    {
-        var user = await _context.Users
-            .Include(u => u.Roles)
-            .FirstOrDefaultAsync(u => u.Id == id);
+    // 8. Группируем связи "пользователь-роль" по UserId.
+    // Для каждого UserId мы получим список всех RoleId, которые ему назначены.
+    var userRolesGroupedByUserId = userRoleLinks.ToLookup(ur => ur.UserId, ur => ur.RoleId);
 
-        if (user == null)
+    // 9. Формируем итоговый список DTO.
+    var usersListDto = users.Select(userEntity => // Идем по списку НАШИХ сущностей User
+    {
+        List<string> currentUserRoleNames = new List<string>();
+        if (userRolesGroupedByUserId.Contains(userEntity.Id)) // Проверяем, есть ли у этого пользователя вообще роли
         {
-            return null;
+            // userRolesGroupedByUserId[userEntity.Id] - это коллекция всех RoleId для данного userEntity.Id
+            foreach (var roleIdAssignedToUser in userRolesGroupedByUserId[userEntity.Id])
+            {
+                if (rolesMap.TryGetValue(roleIdAssignedToUser, out var roleName)) // Ищем имя роли в нашем словаре
+                {
+                    currentUserRoleNames.Add(roleName);
+                }
+                // Если roleIdAssignedToUser нет в rolesMap (маловероятно, если данные консистентны),
+                // то эта роль просто не будет добавлена в список имен.
+            }
         }
-        
-        return UserMapper.ToDto(user);
+        // 10. Маппим сущность User и собранный список имен ролей в UserDto.
+        return UserMapper.ToDto(userEntity, currentUserRoleNames);
+    }).ToList();
+
+    // 11. Возвращаем результат.
+    return usersListDto;
+}
+
+    public Task<UserDto?> GetUserById(string id) // Убедись, что в IUserService тоже string
+    {
+        // TODO: Реализовать с использованием _userManager.FindByIdAsync(id)
+        // и затем смапить в UserDto
+        throw new NotImplementedException();
     }
 
-    public async Task<CreateUserResult> CreateAsync(CreateUserDto createUserDto)
+    public Task<CreateUserResult> CreateAsync(CreateUserDto createUserDto)
     {
-        bool userExists = await _context.Users.AnyAsync(u => u.UserName == createUserDto.UserName);
-        bool emailExists = await _context.Users.AnyAsync(u => u.Email == createUserDto.Email);
-
-        if (userExists)
-        {
-            return new CreateUserResult
-            {
-                Error = CreateUserResult.CreateUserError.UserNameExists
-            };
-        }
-
-        if (emailExists)
-        {
-            return new CreateUserResult
-            {
-                Error = CreateUserResult.CreateUserError.EmailExists
-            };
-        }
-
-        var roles = await _context.Roles
-            .Where(r => createUserDto.RoleIds.Contains(r.Id))
-            .ToListAsync();
-
-        var notFoundRoleIds = createUserDto.RoleIds.Except(roles.Select(r => r.Id)).ToList();
-
-        if (notFoundRoleIds.Any())
-        {
-            return new CreateUserResult
-            {
-                Error = CreateUserResult.CreateUserError.RoleNotFound
-            };
-        }
-
-        var passwordHash = createUserDto.Password;
-        var user = UserMapper.FromDto(createUserDto);
-        user.PasswordHash = passwordHash;
-        user.Roles = roles;
-
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
-
-        return new CreateUserResult
-        {
-            User = UserMapper.ToDto(user)
-        };
+        // TODO: Реализовать с использованием _userManager.CreateAsync(user, password)
+        // и _userManager.AddToRolesAsync(user, roles)
+        throw new NotImplementedException();
     }
 
-    public async Task<UpdateUserResult> UpdateAsync(int id, UpdateUserDto updateUserDto)
+    public Task<UpdateUserResult> UpdateAsync(UpdateUserDto updateUserDto) // Убедись, что в IUserService тоже string
     {
-        var existingUser = await _context.Users
-            .Include(u => u.Roles)
-            .FirstOrDefaultAsync(u => u.Id == id);
-
-        if (existingUser == null)
-        {
-            return new UpdateUserResult
-            {
-                Error = UpdateUserResult.UpdateUserError.UserNotFound
-            };
-        }
-
-        bool userExists =
-            await _context.Users.AnyAsync(u => u.UserName == updateUserDto.UserName && u.Id != existingUser.Id);
-        bool emailExists = await _context.Users.AnyAsync(u => u.Email == updateUserDto.Email && u.Id != existingUser.Id);
-
-        if (userExists)
-        {
-            return new UpdateUserResult
-            {
-                Error = UpdateUserResult.UpdateUserError.UserNameExists
-            };
-        }
-
-        if (emailExists)
-        {
-            return new UpdateUserResult
-            {
-                Error = UpdateUserResult.UpdateUserError.UserEmailExists
-            };
-        }
-
-        var roles = await _context.Roles
-            .Where(r => updateUserDto.RoleIds.Contains(r.Id))
-            .ToListAsync();
-
-        var notFoundRoleIds = updateUserDto.RoleIds.Except(roles.Select(r => r.Id)).ToList();
-
-        if (notFoundRoleIds.Any())
-        {
-            return new UpdateUserResult
-            {
-                Error = UpdateUserResult.UpdateUserError.RoleNotFound
-            };
-        }
-
-        if (!roles.Any())
-        {
-            return new UpdateUserResult
-            {
-                Error = UpdateUserResult.UpdateUserError.NoRolesProvided
-            };
-        }
-
-        existingUser.UserName = updateUserDto.UserName;
-        existingUser.Email = updateUserDto.Email;
-        existingUser.Roles = roles;
-        _context.Users.Update(existingUser);
-        await _context.SaveChangesAsync();
-
-        return new UpdateUserResult
-        {
-            User = UserMapper.ToDto(existingUser)
-        };
+        // TODO: Реализовать с использованием _userManager.FindByIdAsync(id) для поиска,
+        // затем _userManager.UpdateAsync(user),
+        // _userManager.ChangePasswordAsync (если нужно),
+        // مدیریت ролей (_userManager.GetRolesAsync, RemoveFromRolesAsync, AddToRolesAsync)
+        throw new NotImplementedException();
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public Task<bool> DeleteAsync(string id) // Убедись, что в IUserService тоже string
     {
-        var user = await _context.Users.FindAsync(id);
-
-        if (user == null)
-        {
-            return false;
-        }
-
-        _context.Users.Remove(user);
-        await _context.SaveChangesAsync();
-        return true;
+        // TODO: Реализовать с использованием _userManager.FindByIdAsync(id) и _userManager.DeleteAsync(user)
+        throw new NotImplementedException();
     }
 
-    public async Task<bool> DeleteAllAsync()
+    public Task<bool> DeleteAllAsync()
     {
-        var any = await _context.Users.AnyAsync();
-        await _databaseCleaner.ClearUsers();
-        return any;
+        // TODO: Подумать, нужна ли эта операция с Identity.
+        // Если да, то _userManager.Users.ToList() и затем цикл с _userManager.DeleteAsync(user)
+        // ОСТОРОЖНО: очень разрушительная операция!
+        throw new NotImplementedException();
     }
 }

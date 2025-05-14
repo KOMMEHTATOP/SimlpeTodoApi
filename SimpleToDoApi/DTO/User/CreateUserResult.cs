@@ -1,3 +1,5 @@
+using SimpleToDoApi.DTO.User;
+
 namespace SimpleToDoApi.DTO;
 
 public class CreateUserResult
