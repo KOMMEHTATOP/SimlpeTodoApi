@@ -5,8 +5,6 @@ VisualStudioVersion = 17.13.35825.156
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleToDoApi", "SimpleTodoApi\SimpleToDoApi.csproj", "{6EEE3F1D-D98D-46B2-89BB-F84C32C1C811}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleToDoApiTest", "SimpleToDoApiTest\SimpleToDoApiTest.csproj", "{49626BFA-DC56-4623-A15A-6F4E2862B98E}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,10 +15,6 @@ Global
 		{6EEE3F1D-D98D-46B2-89BB-F84C32C1C811}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6EEE3F1D-D98D-46B2-89BB-F84C32C1C811}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6EEE3F1D-D98D-46B2-89BB-F84C32C1C811}.Release|Any CPU.Build.0 = Release|Any CPU
-		{49626BFA-DC56-4623-A15A-6F4E2862B98E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{49626BFA-DC56-4623-A15A-6F4E2862B98E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{49626BFA-DC56-4623-A15A-6F4E2862B98E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{49626BFA-DC56-4623-A15A-6F4E2862B98E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

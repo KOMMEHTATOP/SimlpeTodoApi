@@ -1,111 +1,72 @@
-using Microsoft.EntityFrameworkCore;
-using SimpleToDoApi.Data;
+// using Microsoft.EntityFrameworkCore; // Не нужен для заглушек
+using SimpleToDoApi.Data; // Для ITodoContext, если он остался в конструкторе
 using SimpleToDoApi.DTO.Role;
 using SimpleToDoApi.Interfaces;
-using SimpleToDoApi.Mappers;
-using System.Runtime.InteropServices.JavaScript;
+// using SimpleToDoApi.Mappers; // RoleMapper пока не будет использоваться
+// using System.Runtime.InteropServices.JavaScript; // <--- ЭТОТ USING НУЖНО УДАЛИТЬ
 
 namespace SimpleToDoApi.Services;
 
-public class RoleService(IDatabaseCleaner databaseCleaner, ITodoContext context) : IRoleService
+public class RoleService : IRoleService // Убрал параметры конструктора из объявления класса, если это C# 12 primary constructor
 {
-    private readonly IDatabaseCleaner _databaseCleaner = databaseCleaner;
-    private readonly ITodoContext _context = context;
+    // Эти поля пока останутся, но в заглушенных методах использоваться не будут.
+    // Позже мы добавим сюда _roleManager.
+    private readonly IDatabaseCleaner _databaseCleaner;
+    private readonly ITodoContext _context;
 
-    public async Task<List<RoleDto>> GetAllRoles()
+    // Стандартный конструктор
+    public RoleService(IDatabaseCleaner databaseCleaner, ITodoContext context)
     {
-        var rolesList = await context.Roles.ToListAsync();
-        return rolesList.Select(RoleMapper.ToDto).ToList();
+        _databaseCleaner = databaseCleaner;
+        _context = context;
     }
 
-    public async Task<RoleDto?> GetRole(int idRole)
+    public Task<List<RoleDto>> GetAllRoles()
     {
-        var role = await context.Roles.FindAsync(idRole);
-
-        if (role == null)
-        {
-            return null;
-        }
-
-        return RoleMapper.ToDto(role);
+        // Старая логика:
+        // var rolesList = await context.Roles.ToListAsync();
+        // return rolesList.Select(RoleMapper.ToDto).ToList();
+        throw new NotImplementedException("Метод GetAllRoles будет реализован позже с ASP.NET Core Identity.");
     }
 
-    public async Task<RoleResult> CreateRole(CreateRoleDto roleDto)
+    // Тип idRole как в твоем IRoleService (int)
+    public Task<RoleDto?> GetRole(int idRole)
     {
-        bool roleExists = await context.Roles.AnyAsync(r => r.Name == roleDto.Name);
-
-        if (roleExists)
-        {
-            return new RoleResult
-            {
-                Error = RoleResult.RoleError.RoleExists
-            };
-        }
-
-        var newRole = RoleMapper.FromDto(roleDto);
-
-        context.Roles.Add(newRole);
-        await context.SaveChangesAsync();
-
-        return new RoleResult()
-        {
-            Role = RoleMapper.ToDto(newRole)
-        };
+        // Старая логика:
+        // var role = await context.Roles.FindAsync(idRole);
+        // if (role == null)
+        // {
+        //     return null;
+        // }
+        // return RoleMapper.ToDto(role);
+        throw new NotImplementedException("Метод GetRole будет реализован позже с ASP.NET Core Identity.");
     }
 
-    public async Task<RoleResult> UpdateRole(int idRole, UpdateRoleDto roleDto)
+    public Task<RoleResult> CreateRole(CreateRoleDto roleDto)
     {
-        var existingRole = await context.Roles.FindAsync(idRole);
-
-        if (existingRole == null)
-        {
-            return new RoleResult()
-            {
-                Error = RoleResult.RoleError.RoleNotFound
-            };
-        }
-
-        if (existingRole.Name != roleDto.Name)
-        {
-            var nameConflict = await context.Roles.AnyAsync(r => r.Name == roleDto.Name && r.Id != idRole);
-
-            if (nameConflict)
-            {
-                return new RoleResult()
-                {
-                    Error = RoleResult.RoleError.RoleExists
-                };
-            }
-        }
-
-        existingRole.Name = roleDto.Name;
-        existingRole.Description = roleDto.Description;
-
-        await context.SaveChangesAsync();
-
-        return new RoleResult()
-        {
-            Role = RoleMapper.ToDto(existingRole)
-        };
+        // Старая логика была здесь
+        throw new NotImplementedException("Метод CreateRole будет реализован с ASP.NET Core Identity.");
     }
-    
-    public async Task<bool> DeleteRole(int idRole)
+
+    // Тип idRole как в твоем IRoleService (int)
+    public Task<RoleResult> UpdateRole(int idRole, UpdateRoleDto roleDto)
     {
-        var result = await context.Roles.FindAsync(idRole);
-
-        if (result == null)
-        {
-            return false;
-        }
-        context.Roles.Remove(result);
-        await context.SaveChangesAsync();
-
-        return true;
+        // Старая логика была здесь
+        throw new NotImplementedException("Метод UpdateRole будет реализован позже с ASP.NET Core Identity.");
     }
-    public async Task<bool> DeleteAllRoles()
-    {
-        await databaseCleaner.ClearRoles();
-        return true;
 
+    // Тип idRole как в твоем IRoleService (int)
+    public Task<bool> DeleteRole(int idRole)
+    {
+        // Старая логика была здесь
+        throw new NotImplementedException("Метод DeleteRole будет реализован позже с ASP.NET Core Identity.");
+    }
+
+    public Task<bool> DeleteAllRoles()
+    {
+        // Старая логика:
+        // await databaseCleaner.ClearRoles();
+        // return true;
+        throw new NotImplementedException("Метод DeleteAllRoles будет реализован позже с ASP.NET Core Identity (если останется актуальным).");
     }
 }

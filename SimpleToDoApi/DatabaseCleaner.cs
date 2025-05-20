@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SimpleToDoApi.Data;
 
-namespace SimpleToDoApi.Services;
+namespace SimpleToDoApi;
 
 public class DatabaseCleaner : IDatabaseCleaner
 {
@@ -18,11 +18,11 @@ public class DatabaseCleaner : IDatabaseCleaner
 
     public async Task ClearUsers()
     {
-        await _context.Database.ExecuteSqlRawAsync("DELETE FROM [Users]; DBCC CHECKIDENT ('[Users]', RESEED, 0);");
+        await _context.Database.ExecuteSqlRawAsync("DELETE FROM [Users]; DBCC CHECKIDENT ('[AspNetUsers]', RESEED, 0);");
     }
 
     public async Task ClearRoles()
     {
-        await _context.Database.ExecuteSqlRawAsync("DELETE FROM [Roles]; DBCC CHECKIDENT ('[Roles]', RESEED, 0);");
+        await _context.Database.ExecuteSqlRawAsync("DELETE FROM [Roles]; DBCC CHECKIDENT ('[AspNetRoles]', RESEED, 0);");
     }
 }

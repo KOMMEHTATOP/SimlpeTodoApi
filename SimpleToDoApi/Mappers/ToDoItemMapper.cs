@@ -12,6 +12,6 @@ public static class ToDoItemMapper
 
     public static ToDoItem FromDto(CreateToDoItemDto dto)
     {
-        return new ToDoItem { Title = dto.Title, Description = dto.Description, IsComplete = dto.IsComplete, Updated = DateTime.Now, CreatedByUserId = 1};
+        return new ToDoItem { Title = dto.Title, Description = dto.Description, IsComplete = dto.IsComplete, Updated = DateTime.Now};
     }
 }

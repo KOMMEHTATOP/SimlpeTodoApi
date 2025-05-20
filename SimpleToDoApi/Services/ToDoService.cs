@@ -30,7 +30,7 @@ public class ToDoService : IToDoService
             query = query.Where(item => item.IsComplete == filter.IsComplete);
         }
 
-        if (filter.UserId > 0)
+        /*if (filter.UserId > 0)
         {
             var userExists = await _context.Users.AnyAsync(user => user.Id == filter.UserId);
 
@@ -43,7 +43,7 @@ public class ToDoService : IToDoService
             }
 
             query = query.Where(i => i.CreatedByUserId == filter.UserId);
-        }
+        }*/
 
         var totalCount = await query.CountAsync();
         var items = await query

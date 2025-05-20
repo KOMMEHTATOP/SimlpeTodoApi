@@ -1,14 +1,14 @@
-using Microsoft.AspNetCore.Mvc;
 using SimpleToDoApi.DTO;
+using SimpleToDoApi.DTO.User;
+using SimpleToDoApi.DTO.User.HelpersClassToService;
 
 namespace SimpleToDoApi.Interfaces;
 
 public interface IUserService
 {
-    Task<List<UserDto>> GetAllUsers();
-    Task<UserDto?> GetUserById(int id);
+    Task<PagedResult<UserDto>> GetAllUsersAsync(UserQueryParameters userQueryParameters);
+    Task<UserDto?> GetUserByIdAsync(string id);
     Task<CreateUserResult> CreateAsync(CreateUserDto createUserDto);
-    Task<UpdateUserResult> UpdateAsync(int id, UpdateUserDto updateUserDto);
-    Task<bool> DeleteAsync(int id);
-    Task<bool> DeleteAllAsync();
+    Task<UpdateUserResult> UpdateAsync(string id, UpdateUserDto updateUserDto);
+    Task<DeleteUserResult> DeleteAsync(string id);
 }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using SimpleToDoApi.Data;
 using SimpleToDoApi.DTO.ToDoItem;
+using SimpleToDoApi.Interfaces;
 using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Controllers;
@@ -21,7 +22,7 @@ public class TestDataController(ITodoContext context) : ControllerBase
                 Title = $"Task {i + 1}",
                 Description = $"Description for task {i + 1}",
                 IsComplete = i % 2 == 0,
-                CreatedByUserId = userId
+                // CreatedByUserId = userId
             });
         }
 

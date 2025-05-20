@@ -1,183 +1,52 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using SimpleToDoApi.Data;
 using SimpleToDoApi.DTO;
+using SimpleToDoApi.DTO.User.HelpersClassToService; 
 using SimpleToDoApi.Interfaces;
-using SimpleToDoApi.Mappers;
-using System.Runtime.InteropServices.JavaScript;
+using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Services;
 
 public class UserService : IUserService
 {
-
     private readonly ITodoContext _context;
     private readonly IDatabaseCleaner _databaseCleaner;
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly RoleManager<IdentityRole> _roleManager;
 
-    public UserService(ITodoContext context, IDatabaseCleaner databaseCleaner)
+    public UserService(
+        ITodoContext context, 
+        IDatabaseCleaner databaseCleaner, 
+        UserManager<ApplicationUser> userManager, 
+        RoleManager<IdentityRole> roleManager)
     {
         _context = context;
         _databaseCleaner = databaseCleaner;
+        _userManager = userManager;
+        _roleManager = roleManager;
+    }
+    
+    public Task<PagedResult<UserDto>> GetAllUsersAsync(UserQueryParameters userQueryParameters)
+    {
+        throw new NotImplementedException();
+    }
+    public Task<UserDto?> GetUserByIdAsync(string id)
+    {
+        throw new NotImplementedException();
     }
 
-    public async Task<List<UserDto>> GetAllUsers()
+    public Task<CreateUserResult> CreateAsync(CreateUserDto createUserDto)
     {
-        var users = await _context.Users
-            .Include(u => u.Roles)
-            .ToListAsync();
-        
-        return users.Select(UserMapper.ToDto).ToList();
+        throw new NotImplementedException("Метод CreateAsync будет реализован с ASP.NET Core Identity.");
     }
 
-    public async Task<UserDto?> GetUserById(int id)
+    public Task<UpdateUserResult> UpdateAsync(string id, UpdateUserDto updateUserDto)
     {
-        var user = await _context.Users
-            .Include(u => u.Roles)
-            .FirstOrDefaultAsync(u => u.Id == id);
-
-        if (user == null)
-        {
-            return null;
-        }
-        
-        return UserMapper.ToDto(user);
+        throw new NotImplementedException("Метод UpdateAsync будет реализован позже с ASP.NET Core Identity.");
     }
 
-    public async Task<CreateUserResult> CreateAsync(CreateUserDto createUserDto)
+    public Task<DeleteUserResult> DeleteAsync(string id)
     {
-        bool userExists = await _context.Users.AnyAsync(u => u.UserName == createUserDto.UserName);
-        bool emailExists = await _context.Users.AnyAsync(u => u.Email == createUserDto.Email);
-
-        if (userExists)
-        {
-            return new CreateUserResult
-            {
-                Error = CreateUserResult.CreateUserError.UserNameExists
-            };
-        }
-
-        if (emailExists)
-        {
-            return new CreateUserResult
-            {
-                Error = CreateUserResult.CreateUserError.EmailExists
-            };
-        }
-
-        var roles = await _context.Roles
-            .Where(r => createUserDto.RoleIds.Contains(r.Id))
-            .ToListAsync();
-
-        var notFoundRoleIds = createUserDto.RoleIds.Except(roles.Select(r => r.Id)).ToList();
-
-        if (notFoundRoleIds.Any())
-        {
-            return new CreateUserResult
-            {
-                Error = CreateUserResult.CreateUserError.RoleNotFound
-            };
-        }
-
-        var passwordHash = createUserDto.Password;
-        var user = UserMapper.FromDto(createUserDto);
-        user.PasswordHash = passwordHash;
-        user.Roles = roles;
-
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
-
-        return new CreateUserResult
-        {
-            User = UserMapper.ToDto(user)
-        };
-    }
-
-    public async Task<UpdateUserResult> UpdateAsync(int id, UpdateUserDto updateUserDto)
-    {
-        var existingUser = await _context.Users
-            .Include(u => u.Roles)
-            .FirstOrDefaultAsync(u => u.Id == id);
-
-        if (existingUser == null)
-        {
-            return new UpdateUserResult
-            {
-                Error = UpdateUserResult.UpdateUserError.UserNotFound
-            };
-        }
-
-        bool userExists =
-            await _context.Users.AnyAsync(u => u.UserName == updateUserDto.UserName && u.Id != existingUser.Id);
-        bool emailExists = await _context.Users.AnyAsync(u => u.Email == updateUserDto.Email && u.Id != existingUser.Id);
-
-        if (userExists)
-        {
-            return new UpdateUserResult
-            {
-                Error = UpdateUserResult.UpdateUserError.UserNameExists
-            };
-        }
-
-        if (emailExists)
-        {
-            return new UpdateUserResult
-            {
-                Error = UpdateUserResult.UpdateUserError.UserEmailExists
-            };
-        }
-
-        var roles = await _context.Roles
-            .Where(r => updateUserDto.RoleIds.Contains(r.Id))
-            .ToListAsync();
-
-        var notFoundRoleIds = updateUserDto.RoleIds.Except(roles.Select(r => r.Id)).ToList();
-
-        if (notFoundRoleIds.Any())
-        {
-            return new UpdateUserResult
-            {
-                Error = UpdateUserResult.UpdateUserError.RoleNotFound
-            };
-        }
-
-        if (!roles.Any())
-        {
-            return new UpdateUserResult
-            {
-                Error = UpdateUserResult.UpdateUserError.NoRolesProvided
-            };
-        }
-
-        existingUser.UserName = updateUserDto.UserName;
-        existingUser.Email = updateUserDto.Email;
-        existingUser.Roles = roles;
-        _context.Users.Update(existingUser);
-        await _context.SaveChangesAsync();
-
-        return new UpdateUserResult
-        {
-            User = UserMapper.ToDto(existingUser)
-        };
-    }
-
-    public async Task<bool> DeleteAsync(int id)
-    {
-        var user = await _context.Users.FindAsync(id);
-
-        if (user == null)
-        {
-            return false;
-        }
-
-        _context.Users.Remove(user);
-        await _context.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<bool> DeleteAllAsync()
-    {
-        var any = await _context.Users.AnyAsync();
-        await _databaseCleaner.ClearUsers();
-        return any;
+        throw new NotImplementedException("Метод DeleteAsync будет реализован позже с ASP.NET Core Identity.");
     }
 }

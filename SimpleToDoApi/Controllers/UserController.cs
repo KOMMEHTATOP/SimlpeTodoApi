@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using SimpleToDoApi.DTO;
+using SimpleToDoApi.DTO.User;
+using SimpleToDoApi.DTO.User.HelpersClassToService;
 using SimpleToDoApi.Interfaces;
 using SimpleToDoApi.Mappers;
 

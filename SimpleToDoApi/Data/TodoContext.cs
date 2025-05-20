@@ -1,22 +1,24 @@
-﻿using Microsoft.EntityFrameworkCore;
-using SimpleToDoApi.DTO;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using SimpleToDoApi.Interfaces;
 using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Data
 {
-    public class TodoContext(DbContextOptions<TodoContext> options) : DbContext(options), ITodoContext
+    public class TodoContext : IdentityDbContext<ApplicationUser, ApplicationRole, string>, ITodoContext
     {
-
-        public DbSet<ToDoItem> ToDoItems { get; set; }
-        public DbSet<User> Users { get; set; }
-        public DbSet<Role> Roles { get; set; }
-        
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        public TodoContext(DbContextOptions<TodoContext> options) : base(options)
         {
-            modelBuilder.Entity<User>()
-                .HasMany(u => u.Roles)
-                .WithMany(r => r.Users)
-                .UsingEntity(j => j.ToTable("UserRoles"));
+            
         }
+
+        // Fluent Api - по сути надстройка для БД. Тут можно установить обязательные поля, длинну и т.д.
+        // Пока не понимаю зачем это, так как это можно сделать из кода .NET
+        // protected override void OnModelCreating(ModelBuilder builder)
+        // {
+        //     base.OnModelCreating(builder);
+        // }
+        
+        public DbSet<ToDoItem> ToDoItems { get; set; }
     }
 }
