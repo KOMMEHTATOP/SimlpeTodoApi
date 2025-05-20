@@ -24,7 +24,6 @@ public static class UserMapper
             UserName = dto.UserName,
             Email = dto.Email,
             PasswordHash = null, // Сервис заполнит
-            Roles = new List<Role>() // Сервис добавит
         };
     }
 }

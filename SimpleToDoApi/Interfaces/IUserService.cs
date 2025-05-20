@@ -8,7 +8,7 @@ public interface IUserService
     Task<UserPagedResult<UserDto>> GetAllUsers(UserQueryParameters userQueryParameters);
     Task<UserDto?> GetUserById(string id);
     Task<CreateUserResult> CreateAsync(CreateUserDto createUserDto);
-    Task<UpdateUserResult> UpdateAsync(UpdateUserDto updateUserDto);
+    Task<UpdateUserResult> UpdateAsync(string id, UpdateUserDto updateUserDto);
     Task<bool> DeleteAsync(string id);
     Task<bool> DeleteAllAsync();
 }
