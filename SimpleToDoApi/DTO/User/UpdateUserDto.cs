@@ -1,13 +1,8 @@
-using System.ComponentModel.DataAnnotations;
-// ReSharper disable All
-
-namespace SimpleToDoApi.DTO;
+namespace SimpleToDoApi.DTO.User;
 
 public class UpdateUserDto
 {
-    [Required]
-    public required string UserName { get; set; }
-    [EmailAddress]
-    public string Email { get; set; }
-    public List<int> RoleIds { get; set; } = new();
+    public string? UserName { get; set; }
+    public string? Email { get; set; }
+    public List<string> RoleNames { get; set; } = new();
 }

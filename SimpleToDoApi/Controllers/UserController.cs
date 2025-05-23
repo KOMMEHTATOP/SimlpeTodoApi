@@ -1,104 +1,83 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using SimpleToDoApi.DTO;
 using SimpleToDoApi.DTO.User;
 using SimpleToDoApi.DTO.User.HelpersClassToService;
 using SimpleToDoApi.Interfaces;
-using SimpleToDoApi.Mappers;
+
 
 namespace SimpleToDoApi.Controllers
 {
     [Route("api/users")]
     [ApiController]
-    public class UserController(IUserService userService) : ControllerBase
+    public class UserController : ControllerBase
     {
-        [HttpGet]
-        public async Task<ActionResult<List<UserDto>>> GetAllUsers()
+        private readonly IUserService _userService;
+        public UserController(IUserService userService)
         {
-            var result = await userService.GetAllUsers();
+            _userService = userService;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<PagedResult<UserDto>>> GetAllUsers(
+            [FromQuery] UserQueryParameters userQueryParameters)
+        {
+            var result = await _userService.GetAllUsersAsync(userQueryParameters);
             return Ok(result);
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<UserDto>> GetUserById(int id)
+        public async Task<ActionResult<UserDto>> GetUserById(string id)
         {
-            var result = await userService.GetUserById(id);
+            var user = await _userService.GetUserByIdAsync(id);
 
-            if (result == null)
+            if (user == null)
             {
-                return NotFound();
+                return NotFound("User not found");
             }
-            
-            return Ok(result);
+
+            return Ok(user);
         }
-        
+
         [HttpPost]
-        public async Task<ActionResult<UserDto>> CreateUser([FromBody] CreateUserDto createUserDto)
+        public async Task<ActionResult<UserDto>> Create([FromBody] CreateUserDto createUserDto)
         {
-            var result = await userService.CreateAsync(createUserDto);
+            var result = await _userService.CreateAsync(createUserDto);
 
-            if (result.Error != null)
+            if (result.Succeeded)
             {
-                switch (result.Error)
+                return CreatedAtAction(nameof(GetUserById), new
                 {
-                    case CreateUserResult.CreateUserError.UserNameExists:
-                        return Conflict("User name already exists");
-                    case CreateUserResult.CreateUserError.EmailExists:
-                        return Conflict("Email already exists");
-                    case CreateUserResult.CreateUserError.RoleNotFound:
-                        return BadRequest("One or more roles not found");
-                }
+                    id = result.User!.Id
+                }, result.User);
             }
 
-            if (result.User == null)
+            return BadRequest(new
             {
-                return BadRequest("Ошибка создания пользователя");
-            }
-
-            return CreatedAtAction(nameof(GetUserById), new { id = result.User.Id }, result.User);
+                Message = "User creation failed.", Errors = result.Errors
+            });
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult<UserDto>> UpdateUser(int id, [FromBody] UpdateUserDto updatedUserDto)
+        public async Task<ActionResult<UserDto>> Update(string id, [FromBody] UpdateUserDto updateUserDto)
         {
-            var result = await userService.UpdateAsync(id, updatedUserDto);
+            var result = await _userService.UpdateAsync(id, updateUserDto);
 
-            if (result.Error != null)
+            if (result.Succeeded && result.User != null)
             {
-                switch (result.Error)
-                {
-                    case UpdateUserResult.UpdateUserError.UserNameExists:
-                        return Conflict("User name already exists");
-                    case UpdateUserResult.UpdateUserError.RoleNotFound:
-                        return BadRequest("One or more roles not found");
-                    case UpdateUserResult.UpdateUserError.UserEmailExists:
-                        return Conflict("Email already exists");
-                    case UpdateUserResult.UpdateUserError.UserNotFound:
-                        return NotFound("One or more users not found");
-                    case UpdateUserResult.UpdateUserError.NoRolesProvided:
-                        return BadRequest("No roles provided");
-                }
+                return Ok(result.User);
             }
-            
-            return Ok(result.User);
+
+            return BadRequest(new { Message = "User update failed", Errors = result.Errors });
         }
 
         [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteUser(int id)
+        public async Task<ActionResult> Delete(string id)
         {
-            var result = await userService.DeleteAsync(id);
+            var result = await _userService.DeleteAsync(id);
 
-            if (!result)
+            if (!result.Succeeded)
             {
-                return NotFound();
+                return BadRequest(new { Message = "User deletion failed.", Errors = result.Errors });
             }
-            
-            return NoContent();
-        }
-
-        [HttpDelete]
-        public async Task<ActionResult> DeleteAllUsers()
-        {
-            await userService.DeleteAllAsync();
             return NoContent();
         }
     }

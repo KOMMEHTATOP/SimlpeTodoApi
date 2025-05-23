@@ -1,4 +1,5 @@
 using SimpleToDoApi.DTO;
+using SimpleToDoApi.DTO.User;
 using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Mappers;
