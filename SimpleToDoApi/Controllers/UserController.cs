@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using SimpleToDoApi.DTO.User;
 using SimpleToDoApi.DTO.User.HelpersClassToService;
+using SimpleToDoApi.DTO.User.ResultClassesUsers;
 using SimpleToDoApi.Interfaces;
 
 namespace SimpleToDoApi.Controllers
@@ -39,6 +40,11 @@ namespace SimpleToDoApi.Controllers
         [HttpPost]
         public async Task<ActionResult<UserDto>> Create([FromBody] CreateUserDto createUserDto)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            
             var result = await _userService.CreateAsync(createUserDto);
 
             if (result.Succeeded)

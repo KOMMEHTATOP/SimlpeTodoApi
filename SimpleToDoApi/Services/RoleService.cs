@@ -19,7 +19,7 @@ public class RoleService : IRoleService
     public async Task<List<RoleDto>> GetAllRolesAsync()
     {
         var rolesList = await _roleManager.Roles.ToListAsync();
-        return rolesList.Select(r => new RoleDto { Id = r.Id, Name = r.Name }).ToList();
+        return rolesList.Select(r => new RoleDto { Id = r.Id, Name = r.Name, Description = r.Description}).ToList();
     }
 
     public async Task<RoleDto?> GetRoleAsync(string idRole)
@@ -31,12 +31,12 @@ public class RoleService : IRoleService
             return null;    
         }
         
-        return new RoleDto { Id = result?.Id, Name = result?.Name };
+        return new RoleDto { Id = result.Id, Name = result.Name, Description = result.Description };
     }
 
     public async Task<RoleResult> CreateRoleAsync(CreateRoleDto roleDto)
     {
-        var newRole = new ApplicationRole(roleDto.Name!);
+        var newRole = new ApplicationRole(roleDto.Name!) {Description = roleDto.Description};
         var result = await _roleManager.CreateAsync(newRole);
 
         if (!result.Succeeded)
@@ -44,7 +44,7 @@ public class RoleService : IRoleService
             return RoleResult.Failed(result.Errors.Select(e => e.Description).ToList());
         }
         
-        var roleDtoResult = new RoleDto { Id = newRole.Id, Name = newRole.Name };
+        var roleDtoResult = new RoleDto { Id = newRole.Id, Name = newRole.Name, Description = newRole.Description };
         return RoleResult.Success(roleDtoResult);
     }
 
@@ -56,6 +56,7 @@ public class RoleService : IRoleService
             return RoleResult.Failed("Role not found");
         }
         existingRole.Name = roleDto.Name;
+        existingRole.Description = roleDto.Description;
         var result = await _roleManager.UpdateAsync(existingRole);
 
         if (!result.Succeeded)
@@ -63,7 +64,7 @@ public class RoleService : IRoleService
             return RoleResult.Failed(result.Errors.Select(e => e.Description).ToList());
         }
         
-        var roleDtoResult = new RoleDto { Id = existingRole.Id, Name = existingRole.Name };
+        var roleDtoResult = new RoleDto { Id = existingRole.Id, Name = existingRole.Name, Description = existingRole.Description };
         return RoleResult.Success(roleDtoResult);
     }
 

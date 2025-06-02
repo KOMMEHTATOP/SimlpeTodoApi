@@ -6,5 +6,5 @@ public class ToDoItemFilterDto
     public int PageSize { get; set; } = 10;
     public bool? IsComplete { get; set; }
     public string? Search { get; set; }
-    public int UserId { get; set; }
+    public string? UserName { get; set; }
 }

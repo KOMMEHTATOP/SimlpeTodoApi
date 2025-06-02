@@ -1,8 +1,5 @@
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using SimpleToDoApi.Data;
-using SimpleToDoApi.DTO;
 using SimpleToDoApi.DTO.User;
 using SimpleToDoApi.DTO.User.HelpersClassToService;
 using SimpleToDoApi.DTO.User.ResultClassesUsers;
@@ -18,7 +15,8 @@ public class UserService : IUserService
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly ITodoContext _context;
 
-    public UserService(UserManager<ApplicationUser> userManager, RoleManager<ApplicationRole> roleManager, ITodoContext context)
+    public UserService(UserManager<ApplicationUser> userManager, RoleManager<ApplicationRole> roleManager,
+        ITodoContext context)
     {
         _userManager = userManager;
         _roleManager = roleManager;
@@ -29,15 +27,49 @@ public class UserService : IUserService
     {
         var query = _userManager.Users;
 
-        var resultPage = new PagedResult<UserDto>();
+        // Применяем фильтры
+        if (!string.IsNullOrWhiteSpace(userQueryParameters.EmailContains))
+        {
+            query = query.Where(u => u.Email != null && u.Email.Contains(userQueryParameters.EmailContains));
+        }
 
+        if (!string.IsNullOrWhiteSpace(userQueryParameters.UserNameContains))
+        {
+            query = query.Where(u => u.UserName != null && u.UserName.Contains(userQueryParameters.UserNameContains));
+        }
+
+        if (!string.IsNullOrWhiteSpace(userQueryParameters.RoleName))
+        {
+            var role = await _roleManager.FindByNameAsync(userQueryParameters.RoleName);
+
+            if (role != null)
+            {
+                var userIdsWithRole = await _context.UserRoles
+                    .Where(ur => ur.RoleId == role.Id)
+                    .Select(ur => ur.UserId)
+                    .ToListAsync();
+
+                query = query.Where(u => userIdsWithRole.Contains(u.Id));
+            }
+            else
+            {
+                query = query.Where(u => false); // Роль не найдена - пустой результат
+            }
+        }
+
+        var resultPage = new PagedResult<UserDto>();
         resultPage.PageNumber = userQueryParameters.PageNumber;
         resultPage.PageSize = userQueryParameters.PageSize;
+
+        // Подсчет общего количества ПОСЛЕ применения фильтров
         resultPage.TotalCount = await query.CountAsync();
 
+        // Пагинация
         var currentPageUsersQuery = query.Skip((userQueryParameters.PageNumber - 1) * userQueryParameters.PageSize);
         var usersForPageQuery = currentPageUsersQuery.Take(userQueryParameters.PageSize);
         var usersOnPage = await usersForPageQuery.ToListAsync();
+
+        // Получение ролей для пользователей на текущей странице
         var idUsers = usersOnPage.Select(x => x.Id).ToList();
         var userRoleLinks = await _context.UserRoles
             .Where(x => idUsers.Contains(x.UserId))
@@ -51,7 +83,7 @@ public class UserService : IUserService
 
         var roleDict = roles.ToDictionary(r => r.Id, r => r.Name);
         var groupedByUser = userRoleLinks.GroupBy(x => x.UserId);
-        
+
         var rolesByUser = new Dictionary<string, List<string>>();
 
         foreach (var group in groupedByUser)
@@ -63,22 +95,22 @@ public class UserService : IUserService
             {
                 if (roleDict.TryGetValue(userRole.RoleId, out var roleName) && roleName != null)
                 {
-                    userRoleNames.Add(roleName); 
+                    userRoleNames.Add(roleName);
                 }
             }
-    
+
             rolesByUser[userId] = userRoleNames;
         }
-        
-        List<UserDto> usersDtoForPage = new List<UserDto>();
+
+        var usersDtoForPage = new List<UserDto>();
 
         foreach (var user in usersOnPage)
         {
             if (!rolesByUser.TryGetValue(user.Id, out var userRoles))
             {
-                userRoles = new List<string>(); 
+                userRoles = new List<string>();
             }
-        
+
             var preparedUser = UserMapper.ToDto(user, userRoles);
             usersDtoForPage.Add(preparedUser);
         }
@@ -86,7 +118,6 @@ public class UserService : IUserService
         resultPage.Items = usersDtoForPage;
         return resultPage;
     }
-
     public async Task<UserDto?> GetUserByIdAsync(string id)
     {
         var userAssign = await _userManager.FindByIdAsync(id);
@@ -106,37 +137,41 @@ public class UserService : IUserService
         var applicationUser = UserMapper.ToApplicationUser(createUserDto);
         var identityResult = await _userManager.CreateAsync(applicationUser, createUserDto.Password);
 
-        if (identityResult.Succeeded)
+        if (!identityResult.Succeeded)
         {
-            string defaultRoleName = "User";
-            bool roleExists = await _roleManager.RoleExistsAsync(defaultRoleName);
+            return CreateUserResult.Failed(identityResult.Errors);
+        }
+
+        // Проверить что роли переданы
+        if (createUserDto.RoleNames.Count == 0)
+        {
+            return CreateUserResult.Failed("At least one role must be specified.");
+        }
+
+        // Проверить что все роли существуют
+        foreach (var roleName in createUserDto.RoleNames)
+        {
+            var roleExists = await _roleManager.RoleExistsAsync(roleName);
 
             if (!roleExists)
             {
-                var roleResult = await _roleManager.CreateAsync(new ApplicationRole(defaultRoleName));
-
-                if (!roleResult.Succeeded)
-                {
-                    return CreateUserResult.Failed(roleResult.Errors);
-                }
+                return CreateUserResult.Failed($"Role '{roleName}' does not exist.");
             }
-
-            var addToRoleResult = await _userManager.AddToRoleAsync(applicationUser, defaultRoleName);
-
-            if (!addToRoleResult.Succeeded)
-            {
-                return CreateUserResult.Failed(addToRoleResult.Errors);
-            }
-
-            var assignedRole = await _userManager.GetRolesAsync(applicationUser);
-
-            var userToDto = UserMapper.ToDto(applicationUser, assignedRole);
-            return new CreateUserResult(userToDto);
         }
 
-        return CreateUserResult.Failed(identityResult.Errors);
-    }
+        // Назначить роли
+        var addRolesResult = await _userManager.AddToRolesAsync(applicationUser, createUserDto.RoleNames);
 
+        if (!addRolesResult.Succeeded)
+        {
+            return CreateUserResult.Failed(addRolesResult.Errors);
+        }
+
+        // Вернуть пользователя с ролями
+        var assignedRoles = await _userManager.GetRolesAsync(applicationUser);
+        var userDto = UserMapper.ToDto(applicationUser, assignedRoles);
+        return new CreateUserResult(userDto);
+    }
     public async Task<UpdateUserResult> UpdateAsync(string id, UpdateUserDto updateUserDto)
     {
         var userToUpdate = await _userManager.FindByIdAsync(id);
@@ -191,9 +226,9 @@ public class UserService : IUserService
                     if (!roleExists)
                     {
                         return UpdateUserResult.Failed($"Role '{roleName}' does not exist and cannot be assigned.");
-                    }    
+                    }
                 }
-                
+
                 var addRoleResult = await _userManager.AddToRolesAsync(userToUpdate, toAddRoles);
 
                 if (!addRoleResult.Succeeded)
@@ -203,14 +238,14 @@ public class UserService : IUserService
             }
         }
 
-        
+
         var updatedRoles = await _userManager.GetRolesAsync(userToUpdate);
-        
+
         if (updatedRoles.Count == 0)
         {
             return UpdateUserResult.Failed("User must have at least one role");
         }
-        
+
         var updatedUserDto = UserMapper.ToDto(userToUpdate, updatedRoles);
         return new UpdateUserResult(updatedUserDto);
     }
@@ -223,7 +258,7 @@ public class UserService : IUserService
         {
             return DeleteUserResult.Failed("User not found");
         }
-        
+
         var deleteResult = await _userManager.DeleteAsync(userToDelete);
 
         if (!deleteResult.Succeeded)

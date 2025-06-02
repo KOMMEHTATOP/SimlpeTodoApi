@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Identity;
 using SimpleToDoApi.Data;
 using SimpleToDoApi.DTO.ToDoItem;
 using SimpleToDoApi.Mappers;
 using Microsoft.EntityFrameworkCore;
 using SimpleToDoApi.Interfaces;
+using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Services;
 
@@ -10,10 +12,12 @@ public class ToDoService : IToDoService
 {
     private readonly ITodoContext _context;
     private readonly IDatabaseCleaner _databaseCleaner;
-    public ToDoService(ITodoContext dbContext, IDatabaseCleaner databaseCleaner)
+    private readonly UserManager<ApplicationUser> _userManager;
+    public ToDoService(ITodoContext dbContext, IDatabaseCleaner databaseCleaner, UserManager<ApplicationUser> userManager)
     {
         _context = dbContext;
         _databaseCleaner = databaseCleaner;
+        _userManager = userManager;
     }
 
     public async Task<GetToDoItemsResult> GetAllToDo(ToDoItemFilterDto filter)
@@ -29,21 +33,16 @@ public class ToDoService : IToDoService
         {
             query = query.Where(item => item.IsComplete == filter.IsComplete);
         }
-
-        /*if (filter.UserId > 0)
+        
+        if (!string.IsNullOrWhiteSpace(filter.UserName))
         {
-            var userExists = await _context.Users.AnyAsync(user => user.Id == filter.UserId);
-
-            if (!userExists)
+            var user = await _userManager.FindByNameAsync(filter.UserName);
+            if (user != null)
             {
-                return new GetToDoItemsResult()
-                {
-                    Error = GetToDoItemsResult.GetToDoItemsError.UserNotFound
-                };
+                query = query.Where(item => item.CreatedByUserId == user.Id);
             }
+        }
 
-            query = query.Where(i => i.CreatedByUserId == filter.UserId);
-        }*/
 
         var totalCount = await query.CountAsync();
         var items = await query
