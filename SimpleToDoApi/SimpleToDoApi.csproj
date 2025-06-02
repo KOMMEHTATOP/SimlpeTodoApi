@@ -26,4 +26,13 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.8.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Migrations\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Migrations\20250602164623_InitialCreate.cs" />
+    <Compile Remove="Migrations\20250602164623_InitialCreate.Designer.cs" />
+  </ItemGroup>
+
 </Project>
