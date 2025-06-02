@@ -5,6 +5,7 @@ using SimpleToDoApi.Data;
 using SimpleToDoApi.DTO;
 using SimpleToDoApi.DTO.User;
 using SimpleToDoApi.DTO.User.HelpersClassToService;
+using SimpleToDoApi.DTO.User.ResultClassesUsers;
 using SimpleToDoApi.Interfaces;
 using SimpleToDoApi.Mappers;
 using SimpleToDoApi.Models;
@@ -13,21 +14,15 @@ namespace SimpleToDoApi.Services;
 
 public class UserService : IUserService
 {
-    private readonly ITodoContext _context;
-    private readonly IDatabaseCleaner _databaseCleaner;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
+    private readonly ITodoContext _context;
 
-    public UserService(
-        ITodoContext context,
-        IDatabaseCleaner databaseCleaner,
-        UserManager<ApplicationUser> userManager,
-        RoleManager<ApplicationRole> roleManager)
+    public UserService(UserManager<ApplicationUser> userManager, RoleManager<ApplicationRole> roleManager, ITodoContext context)
     {
-        _context = context;
-        _databaseCleaner = databaseCleaner;
         _userManager = userManager;
         _roleManager = roleManager;
+        _context = context;
     }
 
     public async Task<PagedResult<UserDto>> GetAllUsersAsync(UserQueryParameters userQueryParameters)
@@ -43,13 +38,48 @@ public class UserService : IUserService
         var currentPageUsersQuery = query.Skip((userQueryParameters.PageNumber - 1) * userQueryParameters.PageSize);
         var usersForPageQuery = currentPageUsersQuery.Take(userQueryParameters.PageSize);
         var usersOnPage = await usersForPageQuery.ToListAsync();
+        var idUsers = usersOnPage.Select(x => x.Id).ToList();
+        var userRoleLinks = await _context.UserRoles
+            .Where(x => idUsers.Contains(x.UserId))
+            .ToListAsync();
+        var roleIds = userRoleLinks.Select(ur => ur.RoleId)
+            .Distinct()
+            .ToList();
+        var roles = await _roleManager.Roles
+            .Where(x => roleIds.Contains(x.Id))
+            .ToListAsync();
 
+        var roleDict = roles.ToDictionary(r => r.Id, r => r.Name);
+        var groupedByUser = userRoleLinks.GroupBy(x => x.UserId);
+        
+        var rolesByUser = new Dictionary<string, List<string>>();
+
+        foreach (var group in groupedByUser)
+        {
+            var userId = group.Key;
+            var userRoleNames = new List<string>();
+
+            foreach (var userRole in group)
+            {
+                if (roleDict.TryGetValue(userRole.RoleId, out var roleName) && roleName != null)
+                {
+                    userRoleNames.Add(roleName); 
+                }
+            }
+    
+            rolesByUser[userId] = userRoleNames;
+        }
+        
         List<UserDto> usersDtoForPage = new List<UserDto>();
 
         foreach (var user in usersOnPage)
         {
-            var roleNames = await _userManager.GetRolesAsync(user);
-            var preparedUser = UserMapper.ToDto(user, roleNames);
+            if (!rolesByUser.TryGetValue(user.Id, out var userRoles))
+            {
+                userRoles = new List<string>(); 
+            }
+        
+            var preparedUser = UserMapper.ToDto(user, userRoles);
             usersDtoForPage.Add(preparedUser);
         }
 

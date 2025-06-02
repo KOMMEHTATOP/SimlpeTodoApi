@@ -1,6 +1,7 @@
 using SimpleToDoApi.DTO;
 using SimpleToDoApi.DTO.User;
 using SimpleToDoApi.DTO.User.HelpersClassToService;
+using SimpleToDoApi.DTO.User.ResultClassesUsers;
 
 namespace SimpleToDoApi.Interfaces;
 

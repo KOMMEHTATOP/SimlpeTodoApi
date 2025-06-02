@@ -1,90 +1,79 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SimpleToDoApi.Data;
 using SimpleToDoApi.DTO.Role;
+using SimpleToDoApi.DTO.Role.ResultClassesRole;
 using SimpleToDoApi.Interfaces;
-using SimpleToDoApi.Mappers;
-using SimpleToDoApi.Services;
+using SimpleToDoApi.Models;
 
 namespace SimpleToDoApi.Controllers;
 
 [Route("api/roles")]
 [ApiController]
-public class RoleController(IRoleService roleService) : ControllerBase
+public class RoleController : ControllerBase
 {
+    private readonly IRoleService _roleService;
+
+    public RoleController(IRoleService roleService)
+    {
+        _roleService = roleService;
+    }
+    
     [HttpGet]
     public async Task<ActionResult<List<RoleDto>>> GetAllRoles()
     {
-        var rolesList = await roleService.GetAllRoles();
+        var rolesList = await _roleService.GetAllRolesAsync();
         return Ok(rolesList);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<RoleDto>> GetRoleById(int id)
+    public async Task<ActionResult<RoleDto>> GetRoleById(string id)
     {
-        var result = await roleService.GetRole(id);
+        var roleDto = await _roleService.GetRoleAsync(id);
 
-        if (result == null)
+        if (roleDto == null)
         {
             return NotFound();
         }
-
-        return Ok(result);
+        
+        return Ok(roleDto);
     }
 
     [HttpPost]
     public async Task<ActionResult<RoleDto>> CreateRole([FromBody] CreateRoleDto roleDto)
     {
-        var result = await roleService.CreateRole(roleDto);
+        var result = await _roleService.CreateRoleAsync(roleDto);
 
-        if (result.Error == RoleResult.RoleError.RoleExists)
+        if (!result.Succeeded)
         {
-            return Conflict("Role already exists");
-        }
-
-        if (result.Role == null)
-        {
-            return StatusCode(500, "Unexpected error: Role is null");
+            return BadRequest(result.Errors);
         }
         
-        return CreatedAtAction(nameof(GetRoleById), new { id = result.Role.Id }, result.Role);
+        return CreatedAtAction(nameof(GetRoleById), new { id = result.Role!.Id }, result.Role);
     }
+    
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<RoleDto>> UpdateRole([FromRoute] int id, [FromBody] UpdateRoleDto roleDto)
+    public async Task<ActionResult<RoleDto>> UpdateRole([FromRoute] string id, [FromBody] UpdateRoleDto roleDto)
     {
-        var result = await roleService.UpdateRole(id, roleDto);
+        var result = await _roleService.UpdateRoleAsync(id, roleDto);
 
-        if (result.Error != null)
+        if (!result.Succeeded)
         {
-            switch (result.Error)
-            {
-                case RoleResult.RoleError.RoleExists:
-                    return Conflict(result.Error);
-                case RoleResult.RoleError.RoleNotFound:
-                    return NotFound(result.Error);
-            }
+            return BadRequest(result.Errors);
         }
         
         return Ok(result.Role);
     }
 
     [HttpDelete("{id}")]
-    public async Task<ActionResult> DeleteRole(int id)
+    public async Task<ActionResult> DeleteRole(string id)
     {
-        var result = await roleService.DeleteRole(id);
+        var result = await _roleService.DeleteRoleAsync(id);
 
-        if (!result)
+        if (!result.Succeeded)
         {
-            return NotFound();
+            return BadRequest(result.Errors);
         }
-        return NoContent();
-    }
-
-    [HttpDelete]
-    public async Task<ActionResult> DeleteAllRoles()
-    {
-        await roleService.DeleteAllRoles();
+        
         return NoContent();
     }
 }

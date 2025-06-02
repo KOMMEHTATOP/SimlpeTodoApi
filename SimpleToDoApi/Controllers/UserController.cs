@@ -3,7 +3,6 @@ using SimpleToDoApi.DTO.User;
 using SimpleToDoApi.DTO.User.HelpersClassToService;
 using SimpleToDoApi.Interfaces;
 
-
 namespace SimpleToDoApi.Controllers
 {
     [Route("api/users")]

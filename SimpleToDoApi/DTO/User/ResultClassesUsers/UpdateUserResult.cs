@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace SimpleToDoApi.DTO.User.HelpersClassToService 
+namespace SimpleToDoApi.DTO.User.ResultClassesUsers 
 {
     public class UpdateUserResult
     {
