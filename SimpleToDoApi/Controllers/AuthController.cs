@@ -1,10 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
+using SimpleToDoApi.DTO.Auth;
+using SimpleToDoApi.Interfaces.Auth;
 using SimpleToDoApi.Models;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace SimpleToDoApi.Controllers
 {
@@ -12,49 +11,42 @@ namespace SimpleToDoApi.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ITokenService _tokenService;
+        
+        public AuthController(UserManager<ApplicationUser> userManager, ITokenService tokenService)
+        {
+            _userManager = userManager;
+            _tokenService = tokenService;
+        }
+        
         [HttpPost("login")]
         [AllowAnonymous]
-        public IActionResult Login([FromBody] LoginModel login)
+        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
         {
-            string role;
+            var user = await _userManager.FindByNameAsync(loginDto.UserName);
+            if (user == null)
+            {
+                return BadRequest("Invalid username");
+            }
+            
+            var isPasswordValid = await _userManager.CheckPasswordAsync(user, loginDto.Password);
 
-            if (login.Username == "1" && login.Password == "1")
+            if (!isPasswordValid)
             {
-                role = "Admin";
+                return BadRequest("Invalid password");
             }
-            else if (login.Username == "2" && login.Password == "2")
-            {
-                role = "User";
-            }
-            else
-            {
-                return Unauthorized("Invalid username or password!");
-            }
-
-            var token = GenerateJwtToken(login.Username, role);
-            return Ok(new { token });
+            
+            //конечно лучше сделать так, чтобы злоумышленник не понимал существуюет ли вообще такой пользователь,
+            //но пока оставил различия чтобы самому понимать что пошло не так и видеть нужные ответы
+            // if (user == null || !await _userManager.CheckPasswordAsync(user, loginDto.Password))
+            // {
+            //     return BadRequest("Invalid credentials");
+            // }
+            
+            var token = await _tokenService.GenerateToken(user);
+            return Ok(new { token = token });
         }
 
-        private object GenerateJwtToken(string username, string role)
-        {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("your_secret_key_which_is_long_enough"));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, username),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.Role, role)
-            };
-
-            var token = new JwtSecurityToken(
-                issuer: "your_issuer",
-                audience: "your_audience",
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(30),
-                signingCredentials: creds);
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
-        }
     }
 }

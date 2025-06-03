@@ -13,6 +13,7 @@ public class ToDoService : IToDoService
     private readonly ITodoContext _context;
     private readonly IDatabaseCleaner _databaseCleaner;
     private readonly UserManager<ApplicationUser> _userManager;
+    
     public ToDoService(ITodoContext dbContext, IDatabaseCleaner databaseCleaner, UserManager<ApplicationUser> userManager)
     {
         _context = dbContext;
@@ -20,9 +21,10 @@ public class ToDoService : IToDoService
         _userManager = userManager;
     }
 
-    public async Task<GetToDoItemsResult> GetAllToDo(ToDoItemFilterDto filter)
+    public async Task<GetToDoItemsResult> GetAllToDo(ToDoItemFilterDto filter, string userId)
     {
-        var query = _context.ToDoItems.AsQueryable();
+        // Показываем только задачи текущего пользователя
+        var query = _context.ToDoItems.Where(item => item.CreatedByUserId == userId);
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -34,15 +36,15 @@ public class ToDoService : IToDoService
             query = query.Where(item => item.IsComplete == filter.IsComplete);
         }
         
-        if (!string.IsNullOrWhiteSpace(filter.UserName))
-        {
-            var user = await _userManager.FindByNameAsync(filter.UserName);
-            if (user != null)
-            {
-                query = query.Where(item => item.CreatedByUserId == user.Id);
-            }
-        }
-
+        // Убираем фильтр по UserName - теперь показываем только задачи текущего пользователя
+        // if (!string.IsNullOrWhiteSpace(filter.UserName))
+        // {
+        //     var user = await _userManager.FindByNameAsync(filter.UserName);
+        //     if (user != null)
+        //     {
+        //         query = query.Where(item => item.CreatedByUserId == user.Id);
+        //     }
+        // }
 
         var totalCount = await query.CountAsync();
         var items = await query
@@ -64,9 +66,10 @@ public class ToDoService : IToDoService
         };
     }
 
-    public async Task<ToDoItemResult> GetByIdToDo(int id)
+    public async Task<ToDoItemResult> GetByIdToDo(int id, string userId)
     {
-        var todoItem = await _context.ToDoItems.FindAsync(id);
+        // Проверяем что задача принадлежит пользователю
+        var todoItem = await _context.ToDoItems.FirstOrDefaultAsync(item => item.Id == id && item.CreatedByUserId == userId);
 
         if (todoItem == null)
         {
@@ -75,6 +78,7 @@ public class ToDoService : IToDoService
                 Error = ToDoItemResult.ToDoItemError.ToDoNotFound
             };
         }
+        
         var dto = ToDoItemMapper.ToDto(todoItem);
         return new ToDoItemResult()
         {
@@ -82,9 +86,10 @@ public class ToDoService : IToDoService
         };
     }
 
-    public async Task<CreateToDoResult> CreateToDo(CreateToDoItemDto createToDoItemDto)
+    public async Task<CreateToDoResult> CreateToDo(CreateToDoItemDto createToDoItemDto, string userId)
     {
-        bool titleExists = await _context.ToDoItems.AnyAsync(item => item.Title == createToDoItemDto.Title);
+        // Проверяем уникальность title только среди задач этого пользователя
+        bool titleExists = await _context.ToDoItems.AnyAsync(item => item.Title == createToDoItemDto.Title && item.CreatedByUserId == userId);
         if (titleExists)
         {
             return new CreateToDoResult
@@ -94,6 +99,8 @@ public class ToDoService : IToDoService
         }
 
         var newToDoItem = ToDoItemMapper.FromDto(createToDoItemDto);
+        newToDoItem.CreatedByUserId = userId; // Автоматически ставим владельца
+        
         _context.ToDoItems.Add(newToDoItem);
         await _context.SaveChangesAsync();
         
@@ -103,33 +110,35 @@ public class ToDoService : IToDoService
         };
     }
     
-    public async Task<UpdateToDoItemResult> UpdateToDo(int id, UpdateToDoItemDto updateToDoItemDto)
+    public async Task<UpdateToDoItemResult> UpdateToDo(int id, UpdateToDoItemDto updateToDoItemDto, string userId)
     {
-       var todoItem = await _context.ToDoItems.FindAsync(id);
+        // Проверяем что задача принадлежит пользователю
+        var todoItem = await _context.ToDoItems.FirstOrDefaultAsync(item => item.Id == id && item.CreatedByUserId == userId);
 
-       if (todoItem == null)
-       {
-           return new UpdateToDoItemResult
-           {
-               Error = UpdateToDoItemResult.UpdateTodoItemResult.ItemNotFound
-           };
-       }
+        if (todoItem == null)
+        {
+            return new UpdateToDoItemResult
+            {
+                Error = UpdateToDoItemResult.UpdateTodoItemResult.ItemNotFound
+            };
+        }
        
-       bool titleExists = await _context.ToDoItems
-            .AnyAsync(t => t.Title == updateToDoItemDto.Title && t.Id != id);
+        // Проверяем уникальность title только среди задач этого пользователя
+        bool titleExists = await _context.ToDoItems
+             .AnyAsync(t => t.Title == updateToDoItemDto.Title && t.Id != id && t.CreatedByUserId == userId);
 
-       if (titleExists)
-       {
-           return new UpdateToDoItemResult()
-           {
-               Error = UpdateToDoItemResult.UpdateTodoItemResult.TitleExists
-           };
-       }
+        if (titleExists)
+        {
+            return new UpdateToDoItemResult()
+            {
+                Error = UpdateToDoItemResult.UpdateTodoItemResult.TitleExists
+            };
+        }
 
-       todoItem.Title = updateToDoItemDto.Title;
-       todoItem.Description = updateToDoItemDto.Description;
-       todoItem.IsComplete = updateToDoItemDto.IsComplete;
-       todoItem.Updated = DateTime.UtcNow;
+        todoItem.Title = updateToDoItemDto.Title;
+        todoItem.Description = updateToDoItemDto.Description;
+        todoItem.IsComplete = updateToDoItemDto.IsComplete;
+        todoItem.Updated = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
         
@@ -139,9 +148,10 @@ public class ToDoService : IToDoService
         };
     }
 
-    public async Task<bool> DeleteId(int id)
+    public async Task<bool> DeleteId(int id, string userId)
     {
-        var todoItem = await _context.ToDoItems.FindAsync(id);
+        // Проверяем что задача принадлежит пользователю
+        var todoItem = await _context.ToDoItems.FirstOrDefaultAsync(item => item.Id == id && item.CreatedByUserId == userId);
 
         if (todoItem == null)
         {
@@ -151,11 +161,5 @@ public class ToDoService : IToDoService
         _context.ToDoItems.Remove(todoItem);
         await _context.SaveChangesAsync();
         return true;
-    }
-    public async Task<bool> DeleteAll()
-    {
-        var any = await _context.ToDoItems.AnyAsync();
-        await _databaseCleaner.ClearTodoItems();
-        return any;
     }
 }

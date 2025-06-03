@@ -1,100 +1,100 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SimpleToDoApi.DTO.ToDoItem;
 using SimpleToDoApi.Interfaces;
+using System.Security.Claims;
 
 namespace SimpleToDoApi.Controllers
 {
-    [Route("api/todo-items")]
-    [ApiController]
-    public class ToDoItemsController(IToDoService service) : ControllerBase
-    {
-        [HttpGet]
-        public async Task<ActionResult<ToDoMetaPage<ToDoItemDto>>> GetAllTodoItems([FromQuery] ToDoItemFilterDto filter)
-        {
-            var result = await service.GetAllToDo(filter);
+   [Route("api/todo-items")]
+   [ApiController]
+   [Authorize]
+   public class ToDoItemsController(IToDoService service) : ControllerBase
+   {
+       [HttpGet]
+       public async Task<ActionResult<ToDoMetaPage<ToDoItemDto>>> GetAllTodoItems([FromQuery] ToDoItemFilterDto filter)
+       {
+           var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+   
+           var result = await service.GetAllToDo(filter, currentUserId);
+           
+           if (result.Error != null)
+           {
+               return BadRequest("User does not exist.");
+           }
 
-            if (result.Error != null)
-            {
-                return BadRequest("User does not exist.");
-            }
-            return Ok(result.Page);
-        }
+           return Ok(result.Page);
+       }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<ToDoItemDto>> GetTodoItemById(int id)
-        {
-            var todoItem = await service.GetByIdToDo(id);
+       [HttpGet("{id}")]
+       public async Task<ActionResult<ToDoItemDto>> GetTodoItemById(int id)
+       {
+           var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+           var todoItem = await service.GetByIdToDo(id, currentUserId);
 
-            if (todoItem.Error!=null)
-            {
-                return NotFound("Task not found.");
-            }
+           if (todoItem.Error != null)
+           {
+               return NotFound("Task not found.");
+           }
 
-            return Ok(todoItem.Item);
-        }
-     
-        [HttpPost]
-        public async Task<ActionResult<ToDoItemDto>> CreateTodoItem([FromBody] CreateToDoItemDto createTodoItemDto)
-        {
-            var result = await service.CreateToDo(createTodoItemDto);
+           return Ok(todoItem.Item);
+       }
 
-            if (result.Error != null)
-            {
-                return BadRequest("Title already exists");
-            }
+       [HttpPost]
+       public async Task<ActionResult<ToDoItemDto>> CreateTodoItem([FromBody] CreateToDoItemDto createTodoItemDto)
+       {
+           var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+           var result = await service.CreateToDo(createTodoItemDto, currentUserId);
+           
+           if (result.Error != null)
+           {
+               return BadRequest("Title already exists");
+           }
 
-            if (result.CreatedItem == null)
-            {
-                return StatusCode(500, "Unexpected null result");
-            }
-            
-            return CreatedAtAction(nameof(GetTodoItemById), new {id = result.CreatedItem.Id }, result.CreatedItem);
-        }
+           if (result.CreatedItem == null)
+           {
+               return StatusCode(500, "Unexpected null result");
+           }
 
-        [HttpPut("{id}")]
-        public async Task<ActionResult<ToDoItemDto>> UpdateTodoItem(
-            [FromRoute] int id, [FromBody] UpdateToDoItemDto updateDto)
-        {
-            var result = await service.UpdateToDo(id, updateDto);
+           return CreatedAtAction(nameof(GetTodoItemById), new
+           {
+               id = result.CreatedItem.Id
+           }, result.CreatedItem);
+       }
 
-            if (result.Error != null)
-            {
-                switch (result.Error)
-                {
-                    case UpdateToDoItemResult.UpdateTodoItemResult.ItemNotFound:
-                        return NotFound("Task not found.");
-                    case UpdateToDoItemResult.UpdateTodoItemResult.TitleExists:
-                        return BadRequest("Title already exists");
-                }
-            }
-            
-            return Ok(result.UpdatedToDoItem);
-        }
+       [HttpPut("{id}")]
+       public async Task<ActionResult<ToDoItemDto>> UpdateTodoItem(
+           [FromRoute] int id, [FromBody] UpdateToDoItemDto updateDto)
+       {
+           var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+           var result = await service.UpdateToDo(id, updateDto, currentUserId);
 
-        [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteTodoItem(int id)
-        {
-            var deleted = await service.DeleteId(id);
+           if (result.Error != null)
+           {
+               switch (result.Error)
+               {
+                   case UpdateToDoItemResult.UpdateTodoItemResult.ItemNotFound:
+                       return NotFound("Task not found.");
+                   case UpdateToDoItemResult.UpdateTodoItemResult.TitleExists:
+                       return BadRequest("Title already exists");
+               }
+           }
 
-            if (!deleted)
-            {
-                return NotFound("Task not found.");
-            }
-            
-            return NoContent();
-        }
+           return Ok(result.UpdatedToDoItem);
+       }
 
-        [HttpDelete]
-        public async Task<ActionResult> DeleteAllTodoItems()
-        {
-            var deleted = await service.DeleteAll();
+       [HttpDelete("{id}")]
+       public async Task<ActionResult> DeleteTodoItem(int id)
+       {
+           var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+           var deleted = await service.DeleteId(id, currentUserId);
 
-            if (!deleted)
-            {
-                return NotFound("No tasks to delete.");
-            }
-            
-            return NoContent();
-        }
-    }
+           if (!deleted)
+           {
+               return NotFound("Task not found.");
+           }
+
+           return NoContent();
+       }
+   }
 }

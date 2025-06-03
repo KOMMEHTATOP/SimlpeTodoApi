@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SimpleToDoApi.DTO.Role;
 using SimpleToDoApi.DTO.Role.ResultClassesRole;
@@ -8,6 +9,7 @@ namespace SimpleToDoApi.Controllers;
 
 [Route("api/roles")]
 [ApiController]
+[Authorize(Roles = "Admin")]
 public class RoleController : ControllerBase
 {
     private readonly IRoleService _roleService;
